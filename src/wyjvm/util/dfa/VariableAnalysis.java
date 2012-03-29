@@ -55,6 +55,11 @@ public class VariableAnalysis extends TypeFlowAnalysis<Map<Integer, JvmType>> {
 
 		return new VariableTypes(types, true);
 	}
+	
+	@Override
+	protected Map<String, TypeInformation> exceptionLabelTypes() {
+		return new HashMap<String, TypeInformation>();
+	}
 
 	@Override
 	protected TypeInformation emptyTypes() {

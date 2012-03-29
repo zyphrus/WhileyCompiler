@@ -40,8 +40,11 @@ import static wyjvm.lang.JvmTypes.T_INT;
 import static wyjvm.lang.JvmTypes.T_LONG;
 import static wyjvm.lang.JvmTypes.T_SHORT;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Stack;
 
+import wyjvm.attributes.Code;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.ArrayLength;
 import wyjvm.lang.Bytecode.ArrayLoad;
@@ -74,21 +77,34 @@ import wyjvm.lang.JvmType.Array;
 import wyjvm.lang.JvmType.Void;
 
 public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
-
+	
 	public StackAnalysis(Method method) {
 		super(method);
 	}
-
+	
 	@Override
 	public TypeInformation initTypes() {
 		return new StackTypes(new Stack<JvmType>(), true);
 	}
-
+	
+	@Override
+	public Map<String, TypeInformation> exceptionLabelTypes() {
+		Map<String, TypeInformation> map = new HashMap<String, TypeInformation>();
+		
+		for (Code.Handler handler : handlers) {
+			Stack<JvmType> stack = new Stack<JvmType>();
+			stack.push(handler.exception);
+			map.put(handler.label, new StackTypes(stack, true));
+		}
+		
+		return map;
+	}
+	
 	@Override
 	public TypeInformation emptyTypes() {
 		return new StackTypes(new Stack<JvmType>(), false);
 	}
-
+	
 	@Override
 	protected TypeInformation respondTo(TypeInformation types, Bytecode code) {
 		if (code instanceof ArrayLoad) {
@@ -114,7 +130,7 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 			return new StackTypes(newStack, types.isComplete());
 		} else if (code instanceof GetField) {
 			return newTypes(types, ((GetField) code).mode == Bytecode.STATIC ? 0 : 1,
-					((GetField) code).type);
+			    ((GetField) code).type);
 		} else if (code instanceof If) {
 			return newTypes(types, 1);
 		} else if (code instanceof IfCmp) {
@@ -127,8 +143,8 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 			try {
 				boolean isStatic = invoke.mode == Bytecode.STATIC;
 				return newTypes(types, invoke.type.parameterTypes().size()
-						+ (isStatic ? 0 : 1),
-						returnType instanceof Void ? null : returnType);
+				    + (isStatic ? 0 : 1), returnType instanceof Void ? null
+				    : returnType);
 			} catch (RuntimeException rex) {
 				// System.out.println(invoke);
 				throw rex;
@@ -161,7 +177,7 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 			} else {
 				throw new UnsupportedOperationException("Unknown constant type.");
 			}
-
+			
 			return newTypes(types, 0, type);
 		} else if (code instanceof MonitorEnter || code instanceof MonitorExit) {
 			return newTypes(types, 1);
@@ -185,58 +201,58 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 		} else if (code instanceof Switch) {
 			return newTypes(types, 1);
 		}
-
+		
 		return types;
 	}
-
+	
 	private StackTypes newTypes(TypeInformation types, int popCount) {
 		return newTypes(types, popCount, null);
 	}
-
+	
 	private StackTypes newTypes(TypeInformation types, int popCount,
-			JvmType newType) {
+	    JvmType newType) {
 		Stack<JvmType> newStack = copy(types);
-
+		
 		for (int i = 0; i < popCount; ++i) {
 			newStack.pop();
 		}
-
+		
 		if (newType != null) {
 			newStack.push(newType);
 		}
-
+		
 		return new StackTypes(newStack, types.isComplete());
 	}
-
+	
 	private Stack<JvmType> copy(TypeInformation types) {
 		Stack<JvmType> copy = new Stack<JvmType>();
 		copy.addAll(types.getTypeInformation());
 		return copy;
 	}
-
+	
 	private class StackTypes extends TypeInformation {
-
+		
 		public StackTypes(Stack<JvmType> types, boolean complete) {
 			super(types, complete);
 		}
-
+		
 		public StackTypes combineWith(TypeInformation types) {
 			if (isComplete() || equals(types)) {
 				return this;
 			}
-
+			
 			if (types.isComplete()) {
 				if (types instanceof StackTypes) {
 					return (StackTypes) types;
 				}
-
+				
 				return new StackTypes(types.getTypeInformation(), types.isComplete());
 			}
-
+			
 			throw new IllegalStateException(
-					"Two different incomplete stacks cannot be combined.");
+			    "Two different incomplete stacks cannot be combined.");
 		}
-
+		
 	}
-
+	
 }

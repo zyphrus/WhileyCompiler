@@ -58,13 +58,18 @@ public abstract class TypeFlowAnalysis<Types> {
 
 	protected final Method method;
 	protected final List<Bytecode> codes;
+	protected final List<Code.Handler> handlers;
 
 	public TypeFlowAnalysis(Method method) {
 		this.method = method;
 
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
-				codes = ((Code) attribute).bytecodes();
+				Code code = (Code) attribute;
+				
+				codes = code.bytecodes();
+				handlers = code.handlers();
+				
 				return;
 			}
 		}
@@ -81,8 +86,7 @@ public abstract class TypeFlowAnalysis<Types> {
 	 * @return A map from variable number to type.
 	 */
 	public Types typesAt(int at) {
-		Map<String, TypeInformation> labelTypes =
-				new HashMap<String, TypeInformation>();
+		Map<String, TypeInformation> labelTypes = exceptionLabelTypes();
 
 		int size = codes.size();
 		while (true) {
@@ -93,15 +97,6 @@ public abstract class TypeFlowAnalysis<Types> {
 
 			for (int i = 0; i < size; ++i) {
 				Bytecode code = codes.get(i);
-
-				if (i > 0) {
-					Bytecode code2 = codes.get(i - 1);
-					if (code2 instanceof Label) {
-						if (((Label) code2).name.equals("resume0")) {
-
-						}
-					}
-				}
 
 				if (i == at && currentTypes.isComplete()) {
 					return currentTypes.getTypeInformation();
@@ -172,6 +167,11 @@ public abstract class TypeFlowAnalysis<Types> {
 	 * @return The types at the very start of the method.
 	 */
 	protected abstract TypeInformation initTypes();
+	
+	/**
+	 * @return The types at labels that can be gleaned from the exception table.
+	 */
+	protected abstract Map<String, TypeInformation> exceptionLabelTypes();
 
 	/**
 	 * @return An empty, incomplete type representation.
