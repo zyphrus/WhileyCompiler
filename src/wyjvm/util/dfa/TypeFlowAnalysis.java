@@ -133,20 +133,22 @@ public abstract class TypeFlowAnalysis<Types> {
 							// debugging much easier. No one should care about this point.
 							return emptyTypes().getTypeInformation();
 						}
+						
+						// The remaining information is useless. This may be replaced by
+						// existing information about the upcoming label.
+						currentTypes = emptyTypes();
 					}
 
+					// Regardless of whether the current space is now dead, if the next
+					// code is a label and the algorithm has already gathered information
+					// about what will be at that label, then that information can be
+					// added to the current information.
 					if (next instanceof Label) {
 						String labelName = ((Label) codes.get(i + 1)).name;
 
 						if (labelTypes.containsKey(labelName)) {
 							TypeInformation types = labelTypes.get(labelName);
-							currentTypes = dead ? types : currentTypes.combineWith(types);
-						} else if (dead) {
-							// The current type information is now useless.
-							// Note that this must be partial, because we really don't
-							// have
-							// any information at all at this point.
-							currentTypes = emptyTypes();
+							currentTypes = currentTypes.combineWith(types);
 						}
 					}
 				}
