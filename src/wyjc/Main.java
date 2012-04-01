@@ -55,6 +55,8 @@ public class Main {
 	public static final int MINOR_VERSION;
 	public static final int MINOR_REVISION;
 	public static final int BUILD_NUMBER;
+	
+	public static int threadCount;
 
 	public static final int SUCCESS=0;
 	public static final int SYNTAX_ERROR=1;
@@ -152,6 +154,8 @@ public class Main {
 			new OptArg("bootpath", "bp", PATHLIST,
 					"Specify where to find whiley standard library files",					
 					new ArrayList<String>()),
+			new OptArg("thread-count", "tc", INT,
+					"Specify the number of threads to use when run", (Object) (-1)),
 			new OptArg("sourcepath", "sp", PATHLIST,
 					"Specify where to find whiley (source) files",
 					new ArrayList<String>()),
@@ -301,6 +305,8 @@ public class Main {
 		
 		// read out option values
 		boolean verbose = values.containsKey("verbose");
+
+		threadCount = (Integer) values.get("thread-count");
 		String outputdir = (String) values.get("outputdir");
 						
 		ArrayList<Pipeline.Modifier> pipelineModifiers = (ArrayList) values.get("pipeline"); 		
