@@ -87,11 +87,18 @@ public class Continuations {
 	}
 	
 	public void apply(Method method) {
+		System.out.println(method.name());
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
 				apply(method, (Code) attribute);
+				if (method.name().startsWith("main")) {
+					for (Bytecode code : ((Code) attribute).bytecodes()) {
+						System.out.println(code);
+					}
+				}
 			}
 		}
+		System.out.println();
 	}
 	
 	public void apply(Method method, Code code) {
