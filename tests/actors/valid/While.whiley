@@ -4,5 +4,5 @@ import * from whiley.lang.*
 void ::main(Console sys):
     i = 0
     while i < 5:
-        sys.out.println(i)
+        sys.out?println(i)
         i = i + 1

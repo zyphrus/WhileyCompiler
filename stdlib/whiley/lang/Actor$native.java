@@ -30,14 +30,45 @@ import java.math.BigInteger;
 import wyjc.runtime.concurrency.Scheduler;
 
 public class Actor$native {
-	public static void sleep(BigInteger millis) throws InterruptedException {
-    long m = millis.longValue();
-		Thread t = Thread.currentThread();
-		if (t instanceof Scheduler.SchedulerThread) {
-			Scheduler.SchedulerThread thread = (Scheduler.SchedulerThread) t;
-			thread.getCurrentStrand().sleep(m);
+
+	public static void yield() {
+		Thread thread = Thread.currentThread();
+		if (thread instanceof Scheduler.SchedulerThread) {
+			((Scheduler.SchedulerThread) thread).getCurrentStrand().yield();
 		} else {
-			t.sleep(m);
+			throw new UnsupportedOperationException(
+					"Cannot yield from outside of the scheduler.");
 		}
 	}
+
+	public static void sleep(BigInteger millis) throws InterruptedException {
+		long m = millis.longValue();
+		Thread thread = Thread.currentThread();
+		if (thread instanceof Scheduler.SchedulerThread) {
+			((Scheduler.SchedulerThread) thread).getCurrentStrand().sleep(m);
+		} else {
+			Thread.sleep(m);
+		}
+	}
+
+	public static BigInteger getThreadCountUnfiltered() {
+		Thread thread = Thread.currentThread();
+		if (thread instanceof Scheduler.SchedulerThread) {
+			return BigInteger.valueOf(((Scheduler.SchedulerThread) thread)
+					.getScheduler().getThreadCount());
+		} else {
+			throw new UnsupportedOperationException("Cannot determine scheduler.");
+		}
+	}
+
+	public static void setThreadCount(BigInteger count) {
+		Thread thread = Thread.currentThread();
+		if (thread instanceof Scheduler.SchedulerThread) {
+			((Scheduler.SchedulerThread) thread).getScheduler()
+					.setThreadCount(count.intValue());
+		} else {
+			throw new UnsupportedOperationException("Cannot determine scheduler.");
+		}
+	}
+	
 }

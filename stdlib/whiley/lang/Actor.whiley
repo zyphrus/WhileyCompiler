@@ -25,5 +25,19 @@
 
 package whiley.lang
 
+import nat from whiley.lang.Int
+
+public native void yield():
+
 public native void sleep(int millis):
 
+public nat|null getThreadCount():
+    count = getThreadCountUnfiltered()
+    if count < 0:
+        return null
+    else:
+        return count
+
+native int getThreadCountUnfiltered():
+
+public native void setThreadCount(int count):

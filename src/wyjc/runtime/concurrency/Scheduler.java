@@ -43,69 +43,112 @@ public final class Scheduler {
 	// pool will shut down.
 	private int scheduledCount = 0;
 	
+	// The number of threads in the thread pool.
+	private int threadCount = -1;
+	
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
+	
+	// The factory for creating special SchedulerThreads.
+	private final ThreadFactory factory = new SchedulerThreadFactory(); 
 	
 	/**
 	 * Creates a new scheduler with a cached thread pool, meaning threads will be
 	 * booted up as needed, rather than all at once.
 	 */
 	public Scheduler() {
-		pool = Executors.newCachedThreadPool(new SchedulerThreadFactory());
+		pool = Executors.newCachedThreadPool(factory);
 	}
 	
 	/**
 	 * Creates a new scheduler with a thread pool of a fixed size.
 	 * 
 	 * @param threadCount
-	 *          The number of threads to have in the pool.
+	 *          The number of threads to have in the pool
 	 */
 	public Scheduler(int threadCount) {
-		pool =
-		    Executors.newFixedThreadPool(threadCount, new SchedulerThreadFactory());
+		this.threadCount = threadCount;
+		pool = Executors.newFixedThreadPool(threadCount, factory);
+	}
+	
+	/**
+	 * @return The number of threads in the thread pool, or -1 if the size is
+	 *         variable
+	 */
+	public synchronized int getThreadCount() {
+		return threadCount;
+	}
+	
+	/**
+	 * Sets the number of threads in the thread pool. The existing pool will
+	 * finish its currently executing tasks, and then shutdown. All tasks
+	 * following a call to this method will be placed in a new pool with the new
+	 * size.
+	 * 
+	 * If the given size is the same as the current size, this method performs no
+	 * operation.
+	 * 
+	 * @param threadCount
+	 *          The number of threads to use in the thread pool
+	 */
+	public synchronized void setThreadCount(int threadCount) {
+		if (this.threadCount != threadCount) {
+			pool.shutdown();
+			this.threadCount = threadCount;
+			pool = Executors.newFixedThreadPool(threadCount, factory);
+		}
 	}
 	
 	/**
 	 * Schedules the given object to resume as soon as a thread is available.
 	 * 
 	 * @param resumable
-	 *          The object to schedule a resume for.
+	 *          The object to schedule a resume for
 	 */
-	public void scheduleResume(final Strand resumable) {
+	public void scheduleResume(Strand resumable) {
+		Resumer resumer = new Resumer(resumable);
+		
 		synchronized (this) {
 			scheduledCount += 1;
+			pool.execute(resumer);
+		}
+	}
+	
+	private class Resumer implements Runnable {
+		
+		private final Strand strand;
+		
+		public Resumer(Strand strand) {
+			this.strand = strand;
 		}
 		
-		pool.execute(new Runnable() {
+		@Override
+		public void run() {
+			SchedulerThread thread = (SchedulerThread) Thread.currentThread();
 			
-			@Override
-			public void run() {
-				SchedulerThread thread = (SchedulerThread) Thread.currentThread();
-				
-				try {
-					thread.currentStrand = resumable;
-					resumable.resume();
-				} catch (Throwable th) {
-					System.err.println("Warning - actor resumption threw an exception.");
-					th.printStackTrace();
-				} finally {
-					thread.currentStrand = resumable;
-				}
-				
-				synchronized (Scheduler.this) {
-					scheduledCount -= 1;
-				}
-				
-				if (scheduledCount == 0) {
-					pool.shutdown();
-					
-					synchronized (Scheduler.this) {
-						Scheduler.this.notifyAll();
-					}
-				}
+			try {
+				thread.currentStrand = strand;
+				strand.resume();
+			} catch (Throwable th) {
+				System.err.println("Warning - actor resumption threw an exception.");
+				th.printStackTrace();
+			} finally {
+				thread.currentStrand = strand;
 			}
 			
-		});
+			synchronized (Scheduler.this) {
+				scheduledCount -= 1;
+			}
+			
+			if (scheduledCount == 0) {
+				pool.shutdown();
+				
+				synchronized (Scheduler.this) {
+					Scheduler.this.notifyAll();
+				}
+			}
+		}
+		
 	}
 	
 	/**

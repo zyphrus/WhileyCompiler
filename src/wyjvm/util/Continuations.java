@@ -27,7 +27,6 @@
 package wyjvm.util;
 
 import static wyjvm.lang.JvmTypes.JAVA_LANG_OBJECT;
-import static wyjvm.lang.JvmTypes.JAVA_LANG_THROWABLE;
 import static wyjvm.lang.JvmTypes.T_BOOL;
 import static wyjvm.lang.JvmTypes.T_INT;
 import static wyjvm.lang.JvmTypes.T_VOID;
@@ -41,7 +40,7 @@ import wyil.util.Pair;
 import wyjvm.attributes.Code;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.CheckCast;
-import wyjvm.lang.Bytecode.Dup;
+import wyjvm.lang.Bytecode.Goto;
 import wyjvm.lang.Bytecode.If;
 import wyjvm.lang.Bytecode.Invoke;
 import wyjvm.lang.Bytecode.Label;
@@ -51,7 +50,6 @@ import wyjvm.lang.Bytecode.Return;
 import wyjvm.lang.Bytecode.Store;
 import wyjvm.lang.Bytecode.Swap;
 import wyjvm.lang.Bytecode.Switch;
-import wyjvm.lang.Bytecode.Throw;
 import wyjvm.lang.BytecodeAttribute;
 import wyjvm.lang.ClassFile;
 import wyjvm.lang.ClassFile.Method;
@@ -72,12 +70,11 @@ import wyjvm.util.dfa.VariableAnalysis;
  * @author Timothy Jones
  */
 public class Continuations {
-	
+
 	private static final Clazz STRAND = new Clazz("wyjc.runtime.concurrency",
-	    "Strand"), MESSAGER = new Clazz("wyjc.runtime.concurrency", "Messager"),
-	    YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder"),
-	    FUTURE = new Clazz("wyjc.runtime.concurrency", "Messager$MessageFuture");
-	
+			"Strand"), MESSAGER = new Clazz("wyjc.runtime.concurrency", "Messager"),
+			YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
+
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
 			if (!method.name().equals("main")) {
@@ -85,187 +82,170 @@ public class Continuations {
 			}
 		}
 	}
-	
+
 	public void apply(Method method) {
-		System.out.println(method.name());
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
 				apply(method, (Code) attribute);
-				if (method.name().startsWith("main")) {
-					for (Bytecode code : ((Code) attribute).bytecodes()) {
-						System.out.println(code);
-					}
-				}
 			}
 		}
-		System.out.println();
 	}
-	
+
 	public void apply(Method method, Code code) {
 		List<Bytecode> bytecodes = code.bytecodes();
-		
+
 		int location = 0;
-		
+
 		VariableAnalysis variableAnalysis = new VariableAnalysis(method);
 		StackAnalysis stackAnalysis = new StackAnalysis(method);
-		
+
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
-			
+
 			if (bytecode instanceof Invoke) {
 				Invoke invoke = (Invoke) bytecode;
 				String name = invoke.name;
-				
+
 				if (invoke.owner.equals(MESSAGER) && name.equals("sendSync")) {
-					// Synchronous message send.
-					
+					// A strand may have to yield after a synchronous message send. If
+					// the strand should yield afterwards, the stack needs to yield,
+					// then
+					// later resume AFTER the method call.
+
 					i = addStrand(bytecodes, i);
 					bytecodes.add(++i, new Invoke(YIELDER, "shouldYield", new Function(
-					    T_BOOL), Bytecode.VIRTUAL));
+							T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
-					
+
 					Map<Integer, JvmType> types = variableAnalysis.typesAt(i + 1);
 					Stack<JvmType> stack = stackAnalysis.typesAt(i + 1);
-					
+
 					i =
-					    addResume(bytecodes,
-					        addYield(method, bytecodes, i, location, types, stack),
-					        location, types, stack);
-					
+							addResume(bytecodes,
+									addYield(method, bytecodes, i, location, types, stack),
+									location, types, stack);
+
 					bytecodes.add(++i, new Label("skip" + location));
-					
-					if (name.startsWith("sendSync")) {
-						String success = "success" + location;
-						
-						bytecodes.add(++i, new Dup(FUTURE));
-						bytecodes.add(++i, new Invoke(FUTURE, "isFailed", new Function(
-						    T_BOOL), Bytecode.VIRTUAL));
-						bytecodes.add(++i, new If(If.EQ, success));
-						
-						// If the method sends any synchronous messages, then it will check
-						// for failure and respond by not jumping to the success label.
-						bytecodes.add(++i, new Invoke(FUTURE, "getCause", new Function(
-						    JAVA_LANG_THROWABLE), Bytecode.VIRTUAL));
-						bytecodes.add(++i, new Throw());
-						bytecodes.add(++i, new Label(success));
-					}
-					
+
 					location += 1;
-					// } else {
-					// List<JvmType> pTypes = invoke.type.parameterTypes();
-					// if (pTypes.size() > 0 && pTypes.get(0).equals(ACTOR)) {
-					// // Internal method call.
-					//
-					// Map<Integer, JvmType> types = variableAnalysis.typesAt(i);
-					// Stack<JvmType> stack = stackAnalysis.typesAt(i);
-					//
-					// pTypes = invoke.type.parameterTypes();
-					// int size = pTypes.size();
-					//
-					// // Remove the values that invoking the method will remove for us.
-					// for (int j = 0; j < size; ++j) {
-					// stack.pop();
-					// }
-					//
-					// // If the method isn't resuming, it needs to skip over the resume.
-					// bytecodes.add(i++, new Goto("invoke" + location));
-					//
-					// i = addResume(bytecodes, i - 1, location, types, stack) + 1;
-					//
-					// // The first argument of any internal method is the actor.
-					// bytecodes.add(i++, new Load(0, ACTOR));
-					//
-					// // Load in null values. The unyielding will put the real values
-					// // in.
-					// for (int j = 1; j < size; ++j) {
-					// bytecodes.add(i++, addNullValue(pTypes.get(j)));
-					// }
-					//
-					// bytecodes.add(i++, new Label("invoke" + location));
-					//
-					// // Now the method has been invoked, this method needs to check if
-					// // it caused the actor to yield.
-					// bytecodes.add(++i, new Load(0, ACTOR));
-					// bytecodes.add(++i, new Invoke(YIELDER, "isYielded", new Function(
-					// T_BOOL), Bytecode.VIRTUAL));
-					// bytecodes.add(++i, new If(If.EQ, "skip" + location));
-					//
-					// i = addYield(method, bytecodes, i, location, types, stack);
-					//
-					// bytecodes.add(++i, new Label("skip" + location));
-					//
-					// location += 1;
-					// }
+				} else if (canYield(invoke)) {
+					// A strand may yield inside another method. If the method returns
+					// and the current strand is yielded, the stack needs to keep
+					// yielding, then later resume BEFORE the method call, so it
+					// reenters
+					// the yielded method.
+
+					Map<Integer, JvmType> types = variableAnalysis.typesAt(i);
+					Stack<JvmType> stack = stackAnalysis.typesAt(i);
+
+					List<JvmType> pTypes = invoke.type.parameterTypes();
+					int size = pTypes.size();
+
+					// The types we have are from before the method was invoked. We need
+					// to remove the types of the arguments from the stack.
+					for (int j = 0; j < size; ++j) {
+						stack.pop();
+					}
+
+					// If the code flow is arriving here for the first time, it needs to
+					// skip the resume. Future resumptions will jump to the start of the
+					// function to right after this goto with the following resume.
+					bytecodes.add(i++, new Goto("invoke" + location));
+					i = addResume(bytecodes, i - 1, location, types, stack) + 1;
+
+					// Because we're resuming, the arguments don't actually matter. The
+					// analysis on the other end of the method will put the local
+					// variables into the right place.
+					for (int j = 0; j < size; ++j) {
+						bytecodes.add(i++, addNullValue(pTypes.get(j)));
+					}
+
+					// This label is just for the first-time skip commented above.
+					bytecodes.add(i++, new Label("invoke" + location));
+
+					// Now the method has been invoked, this method needs to check if
+					// it caused the actor to yield.
+					i = addStrand(bytecodes, i);
+					bytecodes.add(++i, new Invoke(YIELDER, "isYielded", new Function(
+							T_BOOL), Bytecode.VIRTUAL));
+					bytecodes.add(++i, new If(If.EQ, "skip" + location));
+
+					i = addYield(method, bytecodes, i, location, types, stack);
+
+					bytecodes.add(++i, new Label("skip" + location));
+
+					location += 1;
 				}
 			}
 		}
-		
+
 		// If the method may resume at some point, then the start needs to be
 		// updated in order to cause the next invocation to jump to the right
 		// point in the code.
 		if (location > 0) {
 			int i = -1;
-			
+
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Invoke(YIELDER, "getCurrentStateLocation",
-			    new Function(T_INT), Bytecode.VIRTUAL));
-			
+					new Function(T_INT), Bytecode.VIRTUAL));
+
 			List<Pair<Integer, String>> cases =
-			    new ArrayList<Pair<Integer, String>>(location);
+					new ArrayList<Pair<Integer, String>>(location);
 			for (int j = 0; j < location; ++j) {
 				cases.add(new Pair<Integer, String>(j, "resume" + j));
 			}
-			
+
 			bytecodes.add(++i, new Switch("begin", cases));
 			bytecodes.add(++i, new Label("begin"));
 		}
 	}
-	
+
 	private int addStrand(List<Bytecode> bytecodes, int i) {
-		// Ugh. Until we can tell whether a Java method operates on a Whiley actor,
+		// Ugh. Until we can tell whether a Java method operates on a Whiley
+		// actor,
 		// this is the only way to retrieve a strand for any method.
-		
+
 		bytecodes.add(++i, new Bytecode.Invoke(STRAND, "getCurrentStrand",
-		    new Function(STRAND), Bytecode.STATIC));
-		
+				new Function(STRAND), Bytecode.STATIC));
+
 		return i;
 	}
-	
+
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-	    int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
+			int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
 		i = addStrand(bytecodes, i);
-		
+
 		bytecodes.add(++i, new LoadConst(location));
 		bytecodes.add(++i, new Invoke(YIELDER, "yield",
-		    new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
-		
+				new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
+
 		for (int var : types.keySet()) {
 			JvmType type = types.get(var);
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new LoadConst(var));
 			bytecodes.add(++i, new Load(var, type));
-			
+
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
-			
+
 			bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID, T_INT,
-			    type), Bytecode.VIRTUAL));
+					type), Bytecode.VIRTUAL));
 		}
-		
+
 		for (int j = stack.size() - 1; j >= 0; --j) {
 			JvmType type = stack.get(j);
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Swap());
-			
+
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
-			
+
 			bytecodes.add(++i, new Invoke(YIELDER, "push",
-			    new Function(T_VOID, type), Bytecode.VIRTUAL));
+					new Function(T_VOID, type), Bytecode.VIRTUAL));
 		}
-		
+
 		JvmType returnType = method.type().returnType();
 		if (returnType.equals(T_VOID)) {
 			bytecodes.add(++i, new Return(null));
@@ -273,18 +253,18 @@ public class Continuations {
 			bytecodes.add(++i, addNullValue(returnType));
 			bytecodes.add(++i, new Return(returnType));
 		}
-		
+
 		return i;
 	}
-	
+
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-	    Map<Integer, JvmType> types, Stack<JvmType> stack) {
+			Map<Integer, JvmType> types, Stack<JvmType> stack) {
 		bytecodes.add(++i, new Label("resume" + location));
-		
+
 		for (JvmType type : stack) {
 			JvmType methodType = type;
 			i = addStrand(bytecodes, i);
-			
+
 			String name;
 			if (type instanceof Reference) {
 				name = "popObject";
@@ -294,19 +274,19 @@ public class Continuations {
 				// class names in JvmType.
 				name = "pop" + type.getClass().getSimpleName();
 			}
-			
+
 			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType),
-			    Bytecode.VIRTUAL));
+					Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
 			}
 		}
-		
+
 		for (int var : types.keySet()) {
 			JvmType type = types.get(var), methodType = type;
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new LoadConst(var));
-			
+
 			String name;
 			if (type instanceof Reference) {
 				name = "getObject";
@@ -316,25 +296,25 @@ public class Continuations {
 				// class names in JvmType.
 				name = "get" + type.getClass().getSimpleName();
 			}
-			
+
 			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
-			    T_INT), Bytecode.VIRTUAL));
+					T_INT), Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
 			}
 			bytecodes.add(++i, new Store(var, type));
 		}
-		
+
 		i = addStrand(bytecodes, i);
 		bytecodes.add(++i, new Invoke(YIELDER, "unyield", new Function(T_VOID),
-		    Bytecode.VIRTUAL));
-		
+				Bytecode.VIRTUAL));
+
 		return i;
 	}
-	
+
 	private Bytecode addNullValue(JvmType type) {
 		Object value;
-		
+
 		if (type instanceof Reference) {
 			value = null;
 		} else if (type instanceof Bool) {
@@ -350,11 +330,18 @@ public class Continuations {
 		} else if (type instanceof JvmType.Long) {
 			value = (Long) 0l;
 		} else {
-			throw new UnsupportedOperationException(
-			    "Non-reference types not yet supported.");
+			throw new UnsupportedOperationException("Unknown primitive type.");
 		}
-		
+
 		return new LoadConst(value);
 	}
-	
+
+	private boolean canYield(Invoke invoke) {
+		// TODO Analyse the method body (how?) to tell if the method will actually
+		// yield at any point.
+		String pkg = invoke.owner.pkg();
+		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("wyjc") &&
+				!pkg.startsWith("java");
+	}
+
 }

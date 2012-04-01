@@ -6,5 +6,5 @@ void ::main(Console sys):
     x = "done"
     for i in 0..5:
         x = x + i
-        sys.out.println(i)
-    sys.out.println(x)
+        sys.out?println(i)
+    sys.out?println(x)

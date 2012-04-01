@@ -31,6 +31,11 @@ public class ActorTests extends TestHarness {
 	}
 	
 	@Test
+	public void Local_Method() {
+	  runTest("Local_Method");
+	}
+	
+	@Test
 	public void Self_Method1() {
 		runTest("Self_Method1");
 	}

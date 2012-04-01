@@ -1652,7 +1652,7 @@ public class ClassFileBuilder {
 		
 		if (c.synchronous) {
 			if (c.retval) { 
-				bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "getResult",
+				bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "join",
 						new JvmType.Function(JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
 				addReadConversion(c.type.ret(), bytecodes);
 			} else {

@@ -351,60 +351,34 @@ public abstract class Messager extends Yielder {
 		
 		private MessageFuture() {}
 		
-		public boolean isFailed() {
-			return failed;
-		}
-		
-		public Object getResult() {
-			if (!completed || failed) {
-				throw new IllegalStateException(
-				    "Requested result from incomplete message.");
+		public Object join() throws Throwable {
+			if (!failed && !completed) {
+				synchronized (this) {
+					wait();
+				}
+			}
+			
+			if (failed) {
+				throw cause;
 			}
 			
 			return result;
 		}
 		
-		public Throwable getCause() {
-			if (!failed) {
-				throw new IllegalStateException(
-				    "Requested failure cause from message which has not failed.");
-			}
-			
-			return cause;
-		}
-		
 		private void complete(Object result) {
-			if (completed) {
-				throw new IllegalStateException(
-				    "Attempted to complete an already completed message.");
-			}
-			if (failed) {
-				throw new IllegalStateException(
-				    "Attempted to complete a failed message.");
-			}
+			completed = true;
+			this.result = result;
 			
 			synchronized (this) {
-				completed = true;
-				this.result = result;
-				
 				notifyAll();
 			}
 		}
 		
 		private void fail(Throwable cause) {
-			if (completed) {
-				throw new IllegalStateException(
-				    "Attempted to fail a completed message.");
-			}
-			if (failed) {
-				throw new IllegalStateException(
-				    "Attempted to fail an already failed message.");
-			}
+			failed = true;
+			this.cause = cause;
 			
-			synchronized (this) {
-				failed = true;
-				this.cause = cause;
-				
+			synchronized (this) {				
 				notifyAll();
 			}
 		}
