@@ -56,6 +56,16 @@ public class ActorTests extends TestHarness {
 	}
 	
 	@Test
+	public void While() {
+		runTest("While");
+	}
+	
+	@Test
+	public void For() {
+		runTest("For");
+	}
+	
+	@Test
 	public void TryCatch() {
 		runTest("TryCatch");
 	}

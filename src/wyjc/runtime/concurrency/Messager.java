@@ -172,6 +172,13 @@ public abstract class Messager extends Yielder {
 	}
 	
 	/**
+	 * @return The name of the method for the currently executing message.
+	 */
+	protected String getCurrentMessageMethodName() {
+		return currentMessage.method.getName();
+	}
+	
+	/**
 	 * Resume the current message (The message may not have started yet).
 	 */
 	protected abstract void resume();

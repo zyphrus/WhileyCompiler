@@ -39,7 +39,7 @@ public class Strand extends Messager {
 	 */
 	private boolean isReadyToResume = true;
 	
-	private long wakeAt = -1;
+//	private long wakeAt = -1;
 	
 	/**
 	 * @param scheduler
@@ -80,15 +80,27 @@ public class Strand extends Messager {
 	}
 	
 	/**
+	 * Causes the actor to yield control of the thread for at least the given
+	 * amount of time. This will not work outside of the scheduler, and is not
+	 * synchronized. Only call from strand-local code.
+	 * 
 	 * @param milliseconds
 	 *          The number of milliseconds to sleep for
 	 */
 	public void sleep(long milliseconds) throws InterruptedException {
-		// TODO Reimplement this without blocking the thread.
-		// shouldYield = true;
-		// shouldResume = true;
-		//
-		// wakeAt = System.currentTimeMillis() + milliseconds;
+		if (milliseconds <= 0) {
+			return;
+		}
+		
+//		if (isYielded()) {
+//			unyield();
+//		} else {
+//			shouldResumeImmediately = true;
+//			wakeAt = System.currentTimeMillis() + milliseconds;
+//			yield(0);
+//		}
+
+		// TODO Ensure local method calls yield correctly, then remove this.
 		Thread.sleep(milliseconds);
 	}
 	
@@ -127,7 +139,10 @@ public class Strand extends Messager {
 		} catch (InvocationTargetException itx) {
 			// Asynchronous messages aren't caught, so errors bottom out here.
 			if (!isCurrentMessageSynchronous()) {
-				System.err.println(this + " failed. " + itx.getCause().getMessage());
+				System.err.println(this + " failed in a message to " +
+						getCurrentMessageMethodName() + " because " +
+						itx.getCause().getMessage());
+				itx.getCause().printStackTrace();
 			}
 			
 			// Fails the message and moves on to the next one.
