@@ -219,7 +219,6 @@ public class Continuations {
 			for (Handler handler : handlers) {
 				handler.start += i;
 				handler.end += i;
-				System.out.println(handler.start + " > " + handler.end);
 			}
 		}
 	}

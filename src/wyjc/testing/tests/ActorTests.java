@@ -80,4 +80,9 @@ public class ActorTests extends TestHarness {
 		runTest("SyncFailure");
 	}
 	
+	@Test
+	public void BoolOp() {
+		runTest("BoolOp");
+	}
+	
 }
