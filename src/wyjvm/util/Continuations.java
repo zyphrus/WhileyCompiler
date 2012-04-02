@@ -72,8 +72,8 @@ import wyjvm.util.dfa.VariableAnalysis;
 public class Continuations {
 
 	private static final Clazz STRAND = new Clazz("wyjc.runtime.concurrency",
-			"Strand"), MESSAGER = new Clazz("wyjc.runtime.concurrency", "Messager"),
-			YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
+	    "Strand"), MESSAGER = new Clazz("wyjc.runtime.concurrency", "Messager"),
+	    YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
 
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
@@ -87,6 +87,11 @@ public class Continuations {
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
 				apply(method, (Code) attribute);
+				if (method.name().startsWith("main")) {
+					for (Bytecode code : ((Code) attribute).bytecodes()) {
+						System.out.println(code);
+					}
+				}
 			}
 		}
 	}
@@ -99,6 +104,7 @@ public class Continuations {
 		VariableAnalysis variableAnalysis = new VariableAnalysis(method);
 		StackAnalysis stackAnalysis = new StackAnalysis(method);
 
+		// TODO Rewrite the exception table after the transform.
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
 
@@ -114,16 +120,16 @@ public class Continuations {
 
 					i = addStrand(bytecodes, i);
 					bytecodes.add(++i, new Invoke(YIELDER, "shouldYield", new Function(
-							T_BOOL), Bytecode.VIRTUAL));
+					    T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
 					Map<Integer, JvmType> types = variableAnalysis.typesAt(i + 1);
 					Stack<JvmType> stack = stackAnalysis.typesAt(i + 1);
 
 					i =
-							addResume(bytecodes,
-									addYield(method, bytecodes, i, location, types, stack),
-									location, types, stack);
+					    addResume(bytecodes,
+					        addYield(method, bytecodes, i, location, types, stack),
+					        location, types, stack);
 
 					bytecodes.add(++i, new Label("skip" + location));
 
@@ -131,8 +137,7 @@ public class Continuations {
 				} else if (canYield(invoke)) {
 					// A strand may yield inside another method. If the method returns
 					// and the current strand is yielded, the stack needs to keep
-					// yielding, then later resume BEFORE the method call, so it
-					// reenters
+					// yielding, then later resume BEFORE the method call, so it reenters
 					// the yielded method.
 
 					Map<Integer, JvmType> types = variableAnalysis.typesAt(i);
@@ -167,7 +172,7 @@ public class Continuations {
 					// it caused the actor to yield.
 					i = addStrand(bytecodes, i);
 					bytecodes.add(++i, new Invoke(YIELDER, "isYielded", new Function(
-							T_BOOL), Bytecode.VIRTUAL));
+					    T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
 					i = addYield(method, bytecodes, i, location, types, stack);
@@ -187,10 +192,10 @@ public class Continuations {
 
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Invoke(YIELDER, "getCurrentStateLocation",
-					new Function(T_INT), Bytecode.VIRTUAL));
+			    new Function(T_INT), Bytecode.VIRTUAL));
 
 			List<Pair<Integer, String>> cases =
-					new ArrayList<Pair<Integer, String>>(location);
+			    new ArrayList<Pair<Integer, String>>(location);
 			for (int j = 0; j < location; ++j) {
 				cases.add(new Pair<Integer, String>(j, "resume" + j));
 			}
@@ -206,18 +211,18 @@ public class Continuations {
 		// this is the only way to retrieve a strand for any method.
 
 		bytecodes.add(++i, new Bytecode.Invoke(STRAND, "getCurrentStrand",
-				new Function(STRAND), Bytecode.STATIC));
+		    new Function(STRAND), Bytecode.STATIC));
 
 		return i;
 	}
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-			int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
 		i = addStrand(bytecodes, i);
 
 		bytecodes.add(++i, new LoadConst(location));
 		bytecodes.add(++i, new Invoke(YIELDER, "yield",
-				new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
+		    new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
 
 		for (int var : types.keySet()) {
 			JvmType type = types.get(var);
@@ -230,7 +235,7 @@ public class Continuations {
 			}
 
 			bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID, T_INT,
-					type), Bytecode.VIRTUAL));
+			    type), Bytecode.VIRTUAL));
 		}
 
 		for (int j = stack.size() - 1; j >= 0; --j) {
@@ -243,7 +248,7 @@ public class Continuations {
 			}
 
 			bytecodes.add(++i, new Invoke(YIELDER, "push",
-					new Function(T_VOID, type), Bytecode.VIRTUAL));
+			    new Function(T_VOID, type), Bytecode.VIRTUAL));
 		}
 
 		JvmType returnType = method.type().returnType();
@@ -258,7 +263,7 @@ public class Continuations {
 	}
 
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-			Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    Map<Integer, JvmType> types, Stack<JvmType> stack) {
 		bytecodes.add(++i, new Label("resume" + location));
 
 		for (JvmType type : stack) {
@@ -276,7 +281,7 @@ public class Continuations {
 			}
 
 			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType),
-					Bytecode.VIRTUAL));
+			    Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
 			}
@@ -298,7 +303,7 @@ public class Continuations {
 			}
 
 			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
-					T_INT), Bytecode.VIRTUAL));
+			    T_INT), Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
 			}
@@ -307,7 +312,7 @@ public class Continuations {
 
 		i = addStrand(bytecodes, i);
 		bytecodes.add(++i, new Invoke(YIELDER, "unyield", new Function(T_VOID),
-				Bytecode.VIRTUAL));
+		    Bytecode.VIRTUAL));
 
 		return i;
 	}
@@ -340,8 +345,8 @@ public class Continuations {
 		// TODO Analyse the method body (how?) to tell if the method will actually
 		// yield at any point.
 		String pkg = invoke.owner.pkg();
-		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("wyjc") &&
-				!pkg.startsWith("java");
+		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("wyjc")
+		    && !pkg.startsWith("java");
 	}
 
 }

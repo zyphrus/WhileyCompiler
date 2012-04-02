@@ -102,11 +102,11 @@ public final class Scheduler {
 	/**
 	 * Schedules the given object to resume as soon as a thread is available.
 	 * 
-	 * @param resumable
+	 * @param strand
 	 *          The object to schedule a resume for
 	 */
-	public void scheduleResume(Strand resumable) {
-		Resumer resumer = new Resumer(resumable);
+	public void scheduleResume(Strand strand) {
+		Resumer resumer = new Resumer(strand);
 		
 		synchronized (this) {
 			scheduledCount += 1;
@@ -114,11 +114,19 @@ public final class Scheduler {
 		}
 	}
 	
+	/**
+	 * An implementation of <code>Runnable</code> that takes the given strand and
+	 * resumes its operation. Instances of this class will be stacked up for
+	 * execution in the thread pool. When the thread pool is full, they wait
+	 * until a thread is available.
+	 * 
+	 * @author Timothy Jones
+	 */
 	private class Resumer implements Runnable {
 		
 		private final Strand strand;
 		
-		public Resumer(Strand strand) {
+		private Resumer(Strand strand) {
 			this.strand = strand;
 		}
 		
@@ -190,7 +198,7 @@ public final class Scheduler {
 	 * @param strand
 	 *          The strand now controlling the current thread
 	 */
-	void setCurrentStrand(Strand strand) {
+	protected void setCurrentStrand(Strand strand) {
 		Thread currentThread = Thread.currentThread();
 		
 		if (currentThread instanceof SchedulerThread) {

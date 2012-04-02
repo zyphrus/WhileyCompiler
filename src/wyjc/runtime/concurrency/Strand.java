@@ -50,6 +50,15 @@ public class Strand extends Messager {
 		this.scheduler = scheduler;
 	}
 
+	/**
+	 * Retrieves the strand controlling the current thread. Note that the
+	 * behaviour of this method differs from that of the Scheduler, which only
+	 * retrieves the strand if the strand belongs to that scheduler. This method
+	 * will work for any controlling strand. It will still return null if the
+	 * thread is not in any scheduler, however.
+	 * 
+	 * @return The strand controlling the current thread, or null
+	 */
 	public static Strand getCurrentStrand() {
 		Thread thread = Thread.currentThread();
 		if (thread instanceof Scheduler.SchedulerThread) {
@@ -118,9 +127,11 @@ public class Strand extends Messager {
 		}
 	}
 
-	public void resume() {
+	@Override
+	protected void resume() {
 		if (wakeAt != -1) {
 			if (System.currentTimeMillis() < wakeAt) {
+				isReadyToResume = true;
 				scheduleResume();
 				return;
 			} else {
@@ -128,39 +139,43 @@ public class Strand extends Messager {
 			}
 		}
 
+		Object result;
+		
 		try {
-			Object result = invokeCurrentMethod();
-
-			if (!isYielded()) {
-				isReadyToResume = true;
-				// Completes the message and moves on to the next one.
-				completeCurrentMessage(result);
-			} else {
-				synchronized (this) {
-					isReadyToResume = true;
-					if (shouldResumeImmediately) {
-						// Readies the actor for another resumption.
-						scheduleResume();
-					}
-				}
-			}
+			result = invokeCurrentMethod();
 		} catch (IllegalArgumentException iax) {
 			// Not possible - caught by the language compiler.
 			System.err.println("Warning - illegal arguments in actor resumption.");
+			return;
 		} catch (IllegalAccessException iax) {
 			// Not possible - all message invocations are on public methods.
 			System.err.println("Warning - illegal access in actor resumption.");
+			return;
 		} catch (InvocationTargetException itx) {
 			// Asynchronous messages aren't caught, so errors bottom out here.
 			if (!isCurrentMessageSynchronous()) {
 				System.err.println(this + " failed in a message to "
 						+ getCurrentMessageMethodName() + " because "
 						+ itx.getCause().getMessage());
-				itx.getCause().printStackTrace();
 			}
 
 			// Fails the message and moves on to the next one.
 			failCurrentMessage(itx.getCause());
+			return;
+		}
+		
+		if (!isYielded()) {
+			isReadyToResume = true;
+			// Completes the message and moves on to the next one.
+			completeCurrentMessage(result);
+		} else {
+			synchronized (this) {
+				isReadyToResume = true;
+				if (shouldResumeImmediately) {
+					// Readies the actor for another resumption.
+					scheduleResume();
+				}
+			}
 		}
 	}
 

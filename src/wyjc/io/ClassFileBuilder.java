@@ -1651,12 +1651,12 @@ public class ClassFileBuilder {
 				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));
 		
 		if (c.synchronous) {
-			if (c.retval) { 
-				bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "join",
-						new JvmType.Function(JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
+			bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "join",
+					new JvmType.Function(JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
+			if (c.retval) {
 				addReadConversion(c.type.ret(), bytecodes);
 			} else {
-				bytecodes.add(new Bytecode.Pop(WHILEYFUTURE));
+				bytecodes.add(new Bytecode.Pop(JAVA_LANG_OBJECT));
 			}
 		}
 	}

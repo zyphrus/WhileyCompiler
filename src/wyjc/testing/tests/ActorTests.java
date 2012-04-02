@@ -11,38 +11,38 @@ public class ActorTests extends TestHarness {
 	}
 	
 	@Test
-	public void Print_Async1() {
-		runTest("Print_Async1");
+	public void PrintAsync1() {
+		runTest("PrintAsync1");
 	}
 	
 	@Test
-	public void Print_Async2() {
-		runTest("Print_Async2");
+	public void PrintAsync2() {
+		runTest("PrintAsync2");
 	}
 	
 	@Test
-	public void Print_Sync1() {
-		runTest("Print_Sync1");
+	public void PrintSync1() {
+		runTest("PrintSync1");
 	}
 	
 	@Test
-	public void Print_Sync2() {
-		runTest("Print_Sync2");
+	public void PrintSync2() {
+		runTest("PrintSync2");
 	}
 	
 	@Test
-	public void Local_Method() {
-	  runTest("Local_Method");
+	public void LocalMethod() {
+	  runTest("LocalMethod");
 	}
 	
 	@Test
-	public void Self_Method1() {
-		runTest("Self_Method1");
+	public void SelfMethod1() {
+		runTest("SelfMethod1");
 	}
 	
 	@Test
-	public void Self_Method2() {
-		runTest("Self_Method2");
+	public void SelfMethod2() {
+		runTest("SelfMethod2");
 	}
 	
 	@Test
@@ -73,6 +73,11 @@ public class ActorTests extends TestHarness {
 	@Test
 	public void TryCatch() {
 		runTest("TryCatch");
+	}
+	
+	@Test
+	public void SyncFailure() {
+		runTest("SyncFailure");
 	}
 	
 }
