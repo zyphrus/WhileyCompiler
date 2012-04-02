@@ -53,8 +53,10 @@ import wyjvm.lang.ClassFile.Method;
  * @author Timothy Jones
  * 
  * @param <Types> The collection type of the types content
+ * @param <TypeData> The concrete type of TypeInformation
  */
-public abstract class TypeFlowAnalysis<Types> {
+public abstract class TypeFlowAnalysis<Types,
+		TypeData extends TypeFlowAnalysis<Types, TypeData>.TypeInformation> {
 
 	protected final Method method;
 	protected final List<Bytecode> codes;
@@ -66,10 +68,10 @@ public abstract class TypeFlowAnalysis<Types> {
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
 				Code code = (Code) attribute;
-				
+
 				codes = code.bytecodes();
 				handlers = code.handlers();
-				
+
 				return;
 			}
 		}
@@ -86,14 +88,14 @@ public abstract class TypeFlowAnalysis<Types> {
 	 * @return A map from variable number to type.
 	 */
 	public Types typesAt(int at) {
-		Map<String, TypeInformation> labelTypes = exceptionLabelTypes();
+		Map<String, TypeData> labelTypes = exceptionLabelTypes();
 
 		int size = codes.size();
 		while (true) {
-			Map<String, TypeInformation> comparison =
-					new HashMap<String, TypeInformation>(labelTypes);
+			Map<String, TypeData> comparison =
+			    new HashMap<String, TypeData>(labelTypes);
 
-			TypeInformation currentTypes = initTypes();
+			TypeData currentTypes = initTypes();
 
 			for (int i = 0; i < size; ++i) {
 				Bytecode code = codes.get(i);
@@ -119,8 +121,8 @@ public abstract class TypeFlowAnalysis<Types> {
 				if (i < size - 1) {
 					Bytecode next = codes.get(i + 1);
 					boolean dead =
-							code instanceof Goto || code instanceof Return
-									|| code instanceof Throw;
+					    code instanceof Goto || code instanceof Return
+					        || code instanceof Throw;
 
 					if (dead) {
 						if (!(next instanceof Label)) {
@@ -133,7 +135,7 @@ public abstract class TypeFlowAnalysis<Types> {
 							// debugging much easier. No one should care about this point.
 							return emptyTypes().getTypeInformation();
 						}
-						
+
 						// The remaining information is useless. This may be replaced by
 						// existing information about the upcoming label.
 						currentTypes = emptyTypes();
@@ -147,7 +149,7 @@ public abstract class TypeFlowAnalysis<Types> {
 						String labelName = ((Label) codes.get(i + 1)).name;
 
 						if (labelTypes.containsKey(labelName)) {
-							TypeInformation types = labelTypes.get(labelName);
+							TypeData types = labelTypes.get(labelName);
 							currentTypes = currentTypes.combineWith(types);
 						}
 					}
@@ -158,7 +160,7 @@ public abstract class TypeFlowAnalysis<Types> {
 			// information
 			// to collect.
 			if (comparison.equals(labelTypes)) {
-				for (TypeInformation types : labelTypes.values()) {
+				for (TypeData types : labelTypes.values()) {
 					types.setComplete(true);
 				}
 			}
@@ -168,41 +170,40 @@ public abstract class TypeFlowAnalysis<Types> {
 	/**
 	 * @return The types at the very start of the method.
 	 */
-	protected abstract TypeInformation initTypes();
-	
+	protected abstract TypeData initTypes();
+
 	/**
 	 * @return The types at labels that can be gleaned from the exception table.
 	 */
-	protected abstract Map<String, TypeInformation> exceptionLabelTypes();
+	protected abstract Map<String, TypeData> exceptionLabelTypes();
 
 	/**
 	 * @return An empty, incomplete type representation.
 	 */
-	protected abstract TypeInformation emptyTypes();
+	protected abstract TypeData emptyTypes();
 
 	/**
-	 * A template method on how the analysis should respond to the given
-	 * bytecode with the current types by producing a new current types value.
+	 * A template method on how the analysis should respond to the given bytecode
+	 * with the current types by producing a new current types value.
 	 * 
 	 * @param types The current types in the flow analysis.
 	 * @param code The code to respond to.
 	 * @return The new current types once the code is executed.
 	 */
-	protected abstract TypeInformation respondTo(TypeInformation types,
-			Bytecode code);
+	protected abstract TypeData respondTo(TypeData types, Bytecode code);
 
-	private void addLabelInformation(Map<String, TypeInformation> labelTypes,
-			String labelName, TypeInformation currentTypes) {
+	private void addLabelInformation(Map<String, TypeData> labelTypes,
+	    String labelName, TypeData currentTypes) {
 		// The analysis tends to be run before the switch for resumes is added,
 		// so this allows the types inside the resume code to complete.
 		if (labelName.matches("resume\\d+")) {
-			TypeInformation types = emptyTypes();
+			TypeData types = emptyTypes();
 			types.setComplete(true);
 			labelTypes.put(labelName, types);
 		}
 
 		if (labelTypes.containsKey(labelName)) {
-			TypeInformation labelType = labelTypes.get(labelName);
+			TypeData labelType = labelTypes.get(labelName);
 			if (!labelType.isComplete()) {
 				if (currentTypes.isComplete()) {
 					// This information is better - replace the old information.
@@ -220,8 +221,7 @@ public abstract class TypeFlowAnalysis<Types> {
 
 	/**
 	 * Stores both the type information and whether the information given is
-	 * complete. Extend this class in a subclass of
-	 * <code>TypeFlowAnalysis</code>.
+	 * complete. Extend this class in a subclass of <code>TypeFlowAnalysis</code>.
 	 * 
 	 * @author Timothy Jones
 	 */
@@ -260,22 +260,23 @@ public abstract class TypeFlowAnalysis<Types> {
 		 * Given another type information, combine it with this one to produce an
 		 * entirely new type information.
 		 * 
-		 * Remember that because <code>TypeInformation</code> is an inner class,
-		 * the parameter must have type information of type <code>Types</code>.
+		 * Remember that because <code>TypeInformation</code> is an inner class, the
+		 * parameter must have type information of type <code>Types</code>.
 		 * 
 		 * @param types The type information to combine with.
 		 * @return The combined type information as a new object.
 		 */
-		public abstract TypeInformation combineWith(TypeInformation types);
+		public abstract TypeData combineWith(TypeData types);
 
 		@Override
 		public boolean equals(Object o) {
 			if (o instanceof TypeFlowAnalysis.TypeInformation) {
 				// Ant can't handle wild cards here, it seems.
-				@SuppressWarnings("rawtypes") TypeFlowAnalysis.TypeInformation type =
-						(TypeFlowAnalysis.TypeInformation) o;
+				@SuppressWarnings("rawtypes")
+				TypeFlowAnalysis.TypeInformation type =
+				    (TypeFlowAnalysis.TypeInformation) o;
 				return typeInformation.equals(type.typeInformation)
-						&& complete == type.complete;
+				    && complete == type.complete;
 			}
 
 			return false;

@@ -76,20 +76,21 @@ import wyjvm.lang.JvmType;
 import wyjvm.lang.JvmType.Array;
 import wyjvm.lang.JvmType.Void;
 
-public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
+public class StackAnalysis extends
+		TypeFlowAnalysis<Stack<JvmType>, StackAnalysis.StackTypes> {
 	
 	public StackAnalysis(Method method) {
 		super(method);
 	}
 	
 	@Override
-	public TypeInformation initTypes() {
+	public StackTypes initTypes() {
 		return new StackTypes(new Stack<JvmType>(), true);
 	}
 	
 	@Override
-	public Map<String, TypeInformation> exceptionLabelTypes() {
-		Map<String, TypeInformation> map = new HashMap<String, TypeInformation>();
+	public Map<String, StackTypes> exceptionLabelTypes() {
+		Map<String, StackTypes> map = new HashMap<String, StackTypes>();
 		
 		for (Code.Handler handler : handlers) {
 			Stack<JvmType> stack = new Stack<JvmType>();
@@ -101,12 +102,12 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 	}
 	
 	@Override
-	public TypeInformation emptyTypes() {
+	public StackTypes emptyTypes() {
 		return new StackTypes(new Stack<JvmType>(), false);
 	}
 	
 	@Override
-	protected TypeInformation respondTo(TypeInformation types, Bytecode code) {
+	protected StackTypes respondTo(StackTypes types, Bytecode code) {
 		if (code instanceof ArrayLoad) {
 			return newTypes(types, 2, ((ArrayLoad) code).type);
 		} else if (code instanceof ArrayLength) {
@@ -230,23 +231,20 @@ public class StackAnalysis extends TypeFlowAnalysis<Stack<JvmType>> {
 		return copy;
 	}
 	
-	private class StackTypes extends TypeInformation {
+	protected class StackTypes extends
+			TypeFlowAnalysis<Stack<JvmType>, StackTypes>.TypeInformation {
 		
 		public StackTypes(Stack<JvmType> types, boolean complete) {
 			super(types, complete);
 		}
 		
-		public StackTypes combineWith(TypeInformation types) {
+		public StackTypes combineWith(StackTypes types) {
 			if (isComplete() || equals(types)) {
 				return this;
 			}
 			
 			if (types.isComplete()) {
-				if (types instanceof StackTypes) {
-					return (StackTypes) types;
-				}
-				
-				return new StackTypes(types.getTypeInformation(), types.isComplete());
+				return types;
 			}
 			
 			throw new IllegalStateException(

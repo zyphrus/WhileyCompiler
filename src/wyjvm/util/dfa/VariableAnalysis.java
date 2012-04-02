@@ -38,14 +38,15 @@ import wyjvm.lang.Bytecode.Store;
 import wyjvm.lang.ClassFile.Method;
 import wyjvm.lang.JvmType;
 
-public class VariableAnalysis extends TypeFlowAnalysis<Map<Integer, JvmType>> {
+public class VariableAnalysis extends
+		TypeFlowAnalysis<Map<Integer, JvmType>, VariableAnalysis.VariableTypes> {
 
 	public VariableAnalysis(Method method) {
 		super(method);
 	}
 
 	@Override
-	protected TypeInformation initTypes() {
+	protected VariableTypes initTypes() {
 		Map<Integer, JvmType> types = new HashMap<Integer, JvmType>();
 
 		List<JvmType> parameterTypes = method.type().parameterTypes();
@@ -57,17 +58,17 @@ public class VariableAnalysis extends TypeFlowAnalysis<Map<Integer, JvmType>> {
 	}
 	
 	@Override
-	protected Map<String, TypeInformation> exceptionLabelTypes() {
-		return new HashMap<String, TypeInformation>();
+	protected Map<String, VariableTypes> exceptionLabelTypes() {
+		return new HashMap<String, VariableTypes>();
 	}
 
 	@Override
-	protected TypeInformation emptyTypes() {
+	protected VariableTypes emptyTypes() {
 		return new VariableTypes(new HashMap<Integer, JvmType>(), false);
 	}
 
 	@Override
-	protected TypeInformation respondTo(TypeInformation types, Bytecode code) {
+	protected VariableTypes respondTo(VariableTypes types, Bytecode code) {
 		if (code instanceof Store) {
 			Store store = (Store) code;
 			// Generate new type information, and store it as the current one.
@@ -80,13 +81,15 @@ public class VariableAnalysis extends TypeFlowAnalysis<Map<Integer, JvmType>> {
 		return types;
 	}
 
-	private class VariableTypes extends TypeInformation {
+	protected class VariableTypes extends
+			TypeFlowAnalysis<Map<Integer, JvmType>, VariableTypes>.TypeInformation {
 
 		public VariableTypes(Map<Integer, JvmType> types, boolean complete) {
 			super(types, complete);
 		}
 
-		public VariableTypes combineWith(TypeInformation types) {
+		@Override
+		public VariableTypes combineWith(VariableTypes types) {
 			Map<Integer, JvmType> types1 = getTypeInformation();
 			Map<Integer, JvmType> types2 = types.getTypeInformation();
 
