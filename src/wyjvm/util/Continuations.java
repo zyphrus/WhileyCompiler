@@ -101,10 +101,10 @@ public class Continuations {
 		StackAnalysis stackAnalysis = new StackAnalysis(method);
 
 		List<Handler> handlers = code.handlers();
-		
+
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
-			
+
 			int original = i;
 
 			if (bytecode instanceof Invoke) {
@@ -181,11 +181,11 @@ public class Continuations {
 					location += 1;
 				}
 			}
-			
+
 			// If code has been added, the exception table needs to be updated.
 			if (i != original) {
 				int diff = i - original;
-				
+
 				for (Handler handler : handlers) {
 					if (handler.start <= original && handler.end > original) {
 						handler.end += diff;
@@ -215,7 +215,7 @@ public class Continuations {
 
 			bytecodes.add(++i, new Switch("begin", cases));
 			bytecodes.add(++i, new Label("begin"));
-			
+
 			for (Handler handler : handlers) {
 				handler.start += i;
 				handler.end += i;

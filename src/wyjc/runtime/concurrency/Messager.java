@@ -125,13 +125,16 @@ public abstract class Messager extends Yielder {
 					}
 					
 					message.directCall = false;
+					
+					currentMessage = null;
+					addMessage(message);
 				}
 			}
 			
 			sender.shouldYield = true;
+		} else {
+			addMessage(message);
 		}
-		
-		addMessage(message);
 		
 		if (sender == null) {
 			synchronized (message.future) {

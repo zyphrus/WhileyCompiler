@@ -3,18 +3,18 @@ package wyjc.runtime.concurrency;
 import java.lang.reflect.InvocationTargetException;
 
 /**
- * A lightweight thread. Uses a <code>Scheduler</code> and yielding to
- * simulate threaded behaviour without the overhead associated with creating a
- * real thread, allowing large amounts to be created and used.
+ * A lightweight thread. Uses a <code>Scheduler</code> and yielding to simulate
+ * threaded behaviour without the overhead associated with creating a real
+ * thread, allowing large amounts to be created and used.
  * 
  * If <code>Strand</code> is instantiated, it will perform exactly like an
  * actor, except it has no internal state.
  * 
  * Strands are also usable outside of the ordinary Whiley runtime. The
  * <code>sendAsync</code> method will work as expected, and the
- * <code>sendSync</code> method will cause the calling thread to block until
- * the responding method exits. Calling <code>wait</code> on a strand will
- * block until the strand idles.
+ * <code>sendSync</code> method will cause the calling thread to block until the
+ * responding method exits. Calling <code>wait</code> on a strand will block
+ * until the strand idles.
  * 
  * @author Timothy Jones
  */
@@ -23,19 +23,19 @@ public class Strand extends Messager {
 	private final Scheduler scheduler;
 
 	/**
-	 * Whether the messager should resume immediately upon completing its
-	 * yielding process. This is used mainly to react to a premature resumption,
-	 * when the messager is asked to resume before being ready. In this case,
+	 * Whether the messager should resume immediately upon completing its yielding
+	 * process. This is used mainly to react to a premature resumption, when the
+	 * messager is asked to resume before being ready. In this case,
 	 * <code>shouldResumeImmediately</code> will cause this actor to immediately
 	 * place itself back in the scheduler.
 	 */
 	private boolean shouldResumeImmediately = false;
 
 	/**
-	 * Whether the messager is ready to resume. This is important if a message
-	 * is sent synchronously and the receiver attempts to resume this messager
-	 * before it has completed yielding, in which case the messager will enter
-	 * an inconsistent state. Obviously, all messagers are ready to begin with.
+	 * Whether the messager is ready to resume. This is important if a message is
+	 * sent synchronously and the receiver attempts to resume this messager before
+	 * it has completed yielding, in which case the messager will enter an
+	 * inconsistent state. Obviously, all messagers are ready to begin with.
 	 */
 	private boolean isReadyToResume = true;
 
@@ -95,9 +95,11 @@ public class Strand extends Messager {
 	public void yield() {
 		if (!(Thread.currentThread() instanceof Scheduler.SchedulerThread)) {
 			throw new UnsupportedOperationException(
-					"Cannot yield from outside of the scheduler.");
+			    "Cannot yield from outside of the scheduler.");
 		}
 
+		// Yielding will return the execution to here once the yield has completed.
+		// If this method is invoked while yielding, then it's time to resume.
 		if (isYielded()) {
 			unyield();
 		} else {
@@ -108,23 +110,27 @@ public class Strand extends Messager {
 
 	/**
 	 * Causes the strand to yield control of the thread for at least the given
-	 * amount of time. It will continually schedule resumptions until the
-	 * correct amount of time has passed. This will not work outside of the
-	 * scheduler, and is not synchronized. Only call from strand-local code.
+	 * amount of time. It will continually schedule resumptions until the correct
+	 * amount of time has passed. This will not work outside of the scheduler, and
+	 * is not synchronized. Only call from strand-local code.
 	 * 
 	 * @param milliseconds The number of milliseconds to sleep for
 	 */
 	public void sleep(long milliseconds) throws InterruptedException {
+		// Yielding will return the execution to here once the sleep has completed.
+		// If this method is invoked while yielding, then it's time to wake up.
+		if (isYielded()) {
+			unyield();
+			return;
+		}
+		
+		// Don't bother yielding if there isn't an amount of time to sleep for.
 		if (milliseconds <= 0) {
 			return;
 		}
 
-		if (isYielded()) {
-			unyield();
-		} else {
-			wakeAt = System.currentTimeMillis() + milliseconds;
-			yield();
-		}
+		wakeAt = System.currentTimeMillis() + milliseconds;
+		yield();
 	}
 
 	@Override
@@ -140,7 +146,7 @@ public class Strand extends Messager {
 		}
 
 		Object result;
-		
+
 		try {
 			result = invokeCurrentMethod();
 		} catch (IllegalArgumentException iax) {
@@ -152,18 +158,29 @@ public class Strand extends Messager {
 			System.err.println("Warning - illegal access in actor resumption.");
 			return;
 		} catch (InvocationTargetException itx) {
+			Throwable cause = itx.getCause();
+
 			// Asynchronous messages aren't caught, so errors bottom out here.
 			if (!isCurrentMessageSynchronous()) {
-				System.err.println(this + " failed in a message to "
-						+ getCurrentMessageMethodName() + " because "
-						+ itx.getCause().getMessage());
+				String message = cause.getMessage();
+				
+				System.err.print(this + " failed in a message to "
+				    + getCurrentMessageMethodName() + " because ");
+
+				if (cause instanceof wyjc.runtime.Exception) {
+					System.err.println(cause);
+				} else if (message == null) {
+					System.err.println("of a " + cause);
+				} else {
+					System.err.println(message);
+				}
 			}
 
 			// Fails the message and moves on to the next one.
 			failCurrentMessage(itx.getCause());
 			return;
 		}
-		
+
 		if (!isYielded()) {
 			isReadyToResume = true;
 			// Completes the message and moves on to the next one.

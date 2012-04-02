@@ -42,7 +42,7 @@ public class Actor$native {
 	}
 
 	public static void sleep(BigInteger millis) throws InterruptedException {
-		long m = millis.longValue();
+		long m = millis == null ? 0 : millis.longValue();
 		Thread thread = Thread.currentThread();
 		if (thread instanceof Scheduler.SchedulerThread) {
 			((Scheduler.SchedulerThread) thread).getCurrentStrand().sleep(m);
