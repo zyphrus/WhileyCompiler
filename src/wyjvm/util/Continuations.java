@@ -38,6 +38,7 @@ import java.util.Stack;
 
 import wyil.util.Pair;
 import wyjvm.attributes.Code;
+import wyjvm.attributes.Code.Handler;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.CheckCast;
 import wyjvm.lang.Bytecode.Goto;
@@ -87,11 +88,6 @@ public class Continuations {
 		for (BytecodeAttribute attribute : method.attributes()) {
 			if (attribute instanceof Code) {
 				apply(method, (Code) attribute);
-				if (method.name().startsWith("main")) {
-					for (Bytecode code : ((Code) attribute).bytecodes()) {
-						System.out.println(code);
-					}
-				}
 			}
 		}
 	}
@@ -104,9 +100,12 @@ public class Continuations {
 		VariableAnalysis variableAnalysis = new VariableAnalysis(method);
 		StackAnalysis stackAnalysis = new StackAnalysis(method);
 
-		// TODO Rewrite the exception table after the transform.
+		List<Handler> handlers = code.handlers();
+		
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
+			
+			int original = i;
 
 			if (bytecode instanceof Invoke) {
 				Invoke invoke = (Invoke) bytecode;
@@ -182,6 +181,20 @@ public class Continuations {
 					location += 1;
 				}
 			}
+			
+			// If code has been added, the exception table needs to be updated.
+			if (i != original) {
+				int diff = i - original;
+				
+				for (Handler handler : handlers) {
+					if (handler.start <= original && handler.end > original) {
+						handler.end += diff;
+					} else if (handler.start > original) {
+						handler.start += diff;
+						handler.end += diff;
+					}
+				}
+			}
 		}
 
 		// If the method may resume at some point, then the start needs to be
@@ -202,6 +215,12 @@ public class Continuations {
 
 			bytecodes.add(++i, new Switch("begin", cases));
 			bytecodes.add(++i, new Label("begin"));
+			
+			for (Handler handler : handlers) {
+				handler.start += i;
+				handler.end += i;
+				System.out.println(handler.start + " > " + handler.end);
+			}
 		}
 	}
 
