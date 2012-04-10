@@ -144,6 +144,8 @@ public abstract class ForwardFlowAnalysis<T> {
 					store = transfer(index, (Bytecode.BinOp) bytecode, store);
 				} else if(bytecode instanceof Bytecode.Neg) {
 					store = transfer(index, (Bytecode.Neg) bytecode, store);
+				} else if(bytecode instanceof Bytecode.New) {
+					store = transfer(index, (Bytecode.New) bytecode, store);
 				} else if(bytecode instanceof Bytecode.MonitorEnter) {
 					store = transfer(index, (Bytecode.MonitorEnter) bytecode, store);
 				} else if(bytecode instanceof Bytecode.MonitorExit) {
@@ -393,6 +395,20 @@ public abstract class ForwardFlowAnalysis<T> {
 	 * @return
 	 */
 	public abstract T transfer(int index, Bytecode.Neg code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of
+	 * a new bytecode to an incoming store.
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.New code, T store);
 	
 	/**
 	 * Generate an updated a abstract store by apply the abstract effect(s) of

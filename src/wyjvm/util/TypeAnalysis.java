@@ -216,6 +216,11 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
+	public Store transfer(int index, Bytecode.New code, Store store) {
+		return store.push(code.type);
+	}
+	
+	@Override
 	public Store transfer(int index, boolean branch, If code, Store store) {
 		JvmType mhs = store.top();
 		checkIsSubtype(JvmTypes.T_INT,mhs,index,store);
