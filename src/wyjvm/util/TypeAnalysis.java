@@ -79,7 +79,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 	
 	@Override
-	public Store initialise(Code attr, Method method) {
+	public Store[] initialise(Code attr, Method method) {	
+		// First, create the initial store from the parameter types.
 		List<JvmType> paramTypes = method.type().parameterTypes();
 		JvmType[] types = new JvmType[attr.maxLocals() + attr.maxStack()];
 		int index = 0;
@@ -92,7 +93,10 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 				index = index + 1;
 			}
 		}
-		return new Store(types, attr.maxLocals());
+		// Now, create the stores array (one element for each bytecode);
+		Store[] stores = new Store[attr.bytecodes().size()];
+		stores[0] = new Store(types, attr.maxLocals());
+		return stores;
 	}
 
 	@Override
@@ -111,8 +115,23 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, LoadConst code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		Object constant = code.constant;		
+		if(constant instanceof Integer) {
+			return store.push(JvmTypes.T_INT);
+		} else if(constant instanceof Long) {
+			return store.push(JvmTypes.T_LONG);
+		} else if(constant instanceof Float) {
+			return store.push(JvmTypes.T_FLOAT);
+		} else if(constant instanceof Double) {
+			return store.push(JvmTypes.T_DOUBLE);
+		} else if(constant instanceof String) {
+			return store.push(JvmTypes.JAVA_LANG_STRING);
+		} else if(constant == null) {
+			return store.push(JvmTypes.T_NULL);
+		} else {
+			throw new RuntimeException("unknown constant encountered ("
+					+ constant + ")");
+		}
 	}
 
 	@Override
@@ -180,7 +199,24 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	 * VerificationException.
 	 */
 	protected void checkIsSubtype(JvmType t1, JvmType t2, int index, Store store) {
-		System.out.println("GOT: " + store);
+		if(t1.equals(t2)) {
+			return;
+		} else if(t1 instanceof JvmType.Array && t2 instanceof JvmType.Array) {
+			JvmType.Array a1 = (JvmType.Array) t1;
+			JvmType.Array a2 = (JvmType.Array) t2;
+			// FIXME: can we do better here?
+			if(a1.element().equals(a2.element())) {
+				return;
+			}
+		} else if (t1.equals(JvmTypes.JAVA_LANG_OBJECT)
+				&& t2 instanceof JvmType.Array) {
+			return;
+		} else if(t1 instanceof JvmType.Clazz && t2 instanceof JvmType.Clazz) {
+			// FIXME: could do a lot better here.
+			return;
+		}
+		
+		// return
 		throw new VerificationException(method, index, store, "expected type "
 				+ t1 + ", found type " + t2);
 	}

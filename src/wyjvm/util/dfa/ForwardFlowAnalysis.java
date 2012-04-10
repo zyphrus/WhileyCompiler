@@ -70,8 +70,7 @@ public abstract class ForwardFlowAnalysis<T> {
 		
 		// Stores the abstract store which holds immediately before each
 		// bytecode.
-		T[] stores = (T[]) new Object[bytecodes.size()];
-		stores[0] = initialise(attr,method);
+		T[] stores = initialise(attr,method);
 		
 		while(!worklist.isEmpty()) {
 			int index = select(worklist);				
@@ -155,7 +154,11 @@ public abstract class ForwardFlowAnalysis<T> {
 	}
 	
 	/**
-	 * Generate an initial store for the given method.
+	 * Generate an array of stores, one for each bytecode in the given method.
+	 * The initial store (i.e. at index zero) is the initial store for the
+	 * method.
+	 * 
+	 * initial store for the given method.
 	 * 
 	 * @param attribute
 	 *            --- code attribute being analysed.
@@ -163,7 +166,7 @@ public abstract class ForwardFlowAnalysis<T> {
 	 *            --- enclosing method.
 	 * @return
 	 */
-	public abstract T initialise(Code attribute, ClassFile.Method method);
+	public abstract T[] initialise(Code attribute, ClassFile.Method method);
 	
 	/**
 	 * Generate an updated a abstract store by apply the abstract effect(s) of a
