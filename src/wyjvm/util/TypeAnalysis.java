@@ -29,13 +29,28 @@ import java.util.List;
 
 import wyjvm.attributes.Code;
 import wyjvm.lang.Bytecode;
+import wyjvm.lang.Bytecode.ArrayLength;
 import wyjvm.lang.Bytecode.ArrayLoad;
 import wyjvm.lang.Bytecode.ArrayStore;
 import wyjvm.lang.Bytecode.BinOp;
+import wyjvm.lang.Bytecode.CheckCast;
+import wyjvm.lang.Bytecode.Cmp;
+import wyjvm.lang.Bytecode.Conversion;
+import wyjvm.lang.Bytecode.Dup;
+import wyjvm.lang.Bytecode.DupX1;
+import wyjvm.lang.Bytecode.DupX2;
+import wyjvm.lang.Bytecode.GetField;
 import wyjvm.lang.Bytecode.Iinc;
+import wyjvm.lang.Bytecode.InstanceOf;
+import wyjvm.lang.Bytecode.Invoke;
 import wyjvm.lang.Bytecode.Load;
 import wyjvm.lang.Bytecode.LoadConst;
+import wyjvm.lang.Bytecode.MonitorEnter;
+import wyjvm.lang.Bytecode.MonitorExit;
 import wyjvm.lang.Bytecode.Neg;
+import wyjvm.lang.Bytecode.Nop;
+import wyjvm.lang.Bytecode.Pop;
+import wyjvm.lang.Bytecode.PutField;
 import wyjvm.lang.Bytecode.Return;
 import wyjvm.lang.Bytecode.Throw;
 import wyjvm.lang.ClassFile;
@@ -107,7 +122,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, Load code, Store store) {
+	public Store transfer(int index, Load code, Store store) {		
 		JvmType type = store.get(code.slot);
 		checkIsSubtype(code.type,type,index,store);
 		return store.push(type);		
@@ -136,57 +151,220 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, ArrayLoad code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		JvmType type = store.top();
+		if(type instanceof JvmType.Array) {
+			JvmType.Array arrType = (JvmType.Array) type;
+			checkIsSubtype(code.type,arrType,index,store);
+			return store.pop().push(arrType.element()); 			
+		} else {
+			throw new VerificationException(method, index, store,
+					"arrayload expected array type");
+		}
 	}
 
 	@Override
 	public Store transfer(int index, ArrayStore code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		JvmType type = store.top();
+		if(type instanceof JvmType.Array) {
+			JvmType.Array arrType = (JvmType.Array) type;
+			checkIsSubtype(code.type,arrType,index,store);
+			Store nstore = store.pop();
+			JvmType item = nstore.top();
+			checkIsSubtype(code.type.element(),item,index,store);
+			return store.pop(); 			
+		} else {
+			throw new VerificationException(method, index, store,
+					"arrayload expected array type");
+		}
 	}
 
 	@Override
 	public void transfer(int index, Throw code, Store store) {
-		// TODO Auto-generated method stub
-		
+		JvmType type = store.top();
+		checkIsSubtype(JvmTypes.JAVA_LANG_THROWABLE, type, index, store);
 	}
 
 	@Override
-	public void transfer(int index, Return code, Store store) {
-		// TODO Auto-generated method stub
-		
+	public void transfer(int index, Return code, Store store) {		
+		if(code.type != null) {
+			checkIsSubtype(code.type,store.top(),index,store);
+			checkIsSubtype(method.type().returnType(),store.top(),index,store);
+		}
 	}
 
 	@Override
 	public Store transfer(int index, Iinc code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		checkIsSubtype(JvmTypes.T_INT, store.get(code.slot), index, store);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, BinOp code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		Store nstore = store.pop();
+		JvmType rhs = store.top();
+		JvmType lhs = nstore.top();
+		checkIsSubtype(code.type,lhs,index,store);
+		checkIsSubtype(code.type,rhs,index,store);
+		return nstore.push(code.type);
 	}
 
 	@Override
 	public Store transfer(int index, Neg code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		JvmType mhs = store.top();
+		checkIsSubtype(code.type, mhs, index, store);
+		return store.push(code.type);
 	}
 
 	@Override
 	public Store transfer(int index, boolean branch, If code, Store store) {
+		JvmType mhs = store.top();
+		checkIsSubtype(JvmTypes.T_INT,mhs,index,store);
+		return store.pop();
+	}
+
+	@Override
+	public Store transfer(int index, boolean branch, IfCmp code, Store store) {
+		Store nstore = store.pop();
+		JvmType rhs = store.top();
+		JvmType lhs = nstore.top();
+		checkIsSubtype(code.type,lhs,index,store);
+		checkIsSubtype(code.type,rhs,index,store);
+		return nstore.pop();
+	}
+
+	@Override
+	public Store transfer(int index, GetField code, Store store) {
+		if(code.mode != Bytecode.STATIC) { 
+			JvmType owner = store.top();
+			checkIsSubtype(code.owner, owner, index, store);
+			store = store.pop();
+		}
+		return store.push(code.type);
+	}
+
+	@Override
+	public Store transfer(int index, PutField code, Store store) {
+		Store orig = store;
+		if(code.mode != Bytecode.STATIC) { 
+			JvmType owner = store.top();
+			checkIsSubtype(code.owner, owner, index, store);
+			store = store.pop();
+		}
+		JvmType type = store.top();
+		checkIsSubtype(code.type, type, index, orig);
+		return store.pop();
+	}
+
+	@Override
+	public Store transfer(int index, ArrayLength code, Store store) {
+		JvmType type = store.top();
+		if(type instanceof JvmType.Array) {
+			throw new VerificationException(method, index, store,
+					"arraylength requires array type, found " + type);
+		}
+		return store.push(JvmTypes.T_INT);
+	}
+
+	@Override
+	public Store transfer(int index, Invoke code, Store store) {
+		JvmType.Function ftype = code.type;
+		List<JvmType> parameters = ftype.parameterTypes();
+		for(int i=parameters.size()-1;i>=0;--i) {
+			JvmType type = store.top();
+			checkIsSubtype(parameters.get(i),type,index,store);
+			store = store.pop();
+			
+		}
+		if (code.mode != Bytecode.STATIC) {
+			JvmType type = store.top();
+			checkIsSubtype(code.owner, type, index, store);
+			store = store.pop();
+		}
+		JvmType rtype = ftype.returnType();
+		if(rtype != null) {
+			return store.push(rtype);
+		} else {
+			return store;
+		}
+	}
+
+	@Override
+	public Store transfer(int index, CheckCast code, Store store) {
+		JvmType type = store.top();
+		checkIsSubtype(code.type,type,index,store);
+		return store.pop().push(code.type);
+	}
+
+	@Override
+	public Store transfer(int index, Conversion code, Store store) {
+		JvmType type = store.top();
+		if(!type.equals(code.from)) {
+			throw new VerificationException(method, index, store,
+					"conversion expected " + code.from + ", found " + type);
+		}
+		return store.pop().push(code.to);
+	}
+
+	@Override
+	public Store transfer(int index, InstanceOf code, Store store) {
+		JvmType type = store.top();
+		checkIsSubtype(code.type,type,index,store);
+		return store.pop();
+	}
+
+	@Override
+	public Store transfer(int index, Pop code, Store store) {
+		return store.pop();
+	}
+
+	@Override
+	public Store transfer(int index, Dup code, Store store) {
+		JvmType type = store.top();
+		return store.push(type); 
+	}
+
+	@Override
+	public Store transfer(int index, DupX1 code, Store store) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public Store transfer(int index, boolean branch, IfCmp code, Store store) {
+	public Store transfer(int index, DupX2 code, Store store) {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public Store transfer(int index, Cmp code, Store store) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Store transfer(int index, Nop code, Store store) {
+		return store;
+	}
+
+	@Override
+	public Store transfer(int index, MonitorEnter code, Store store) {
+		JvmType type = store.top();
+		if (type instanceof JvmType.Primitive) {
+			throw new VerificationException(method, index, store,
+					"monitorenter bytecode requires Object type");
+		}
+		return store.pop();
+	}
+
+	@Override
+	public Store transfer(int index, MonitorExit code, Store store) {
+		JvmType type = store.top();
+		if (type instanceof JvmType.Primitive) {
+			throw new VerificationException(method, index, store,
+					"monitorexit bytecode requires Object type");
+		}
+		return store.pop();	}
+
 
 	@Override
 	public Store join(Store original, Store udpate) {
@@ -292,6 +470,9 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			nstore.stack = nstore.stack-1;
 			return nstore;
 		}
+		
+		public String toString() {
+			return Arrays.toString(types);
+		}
 	}
-
 }
