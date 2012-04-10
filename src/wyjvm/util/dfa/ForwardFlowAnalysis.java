@@ -175,7 +175,7 @@ public abstract class ForwardFlowAnalysis<T> {
 			stores[index] = store;
 			worklist.add(index);
 		} else {
-			store = join(old,store);
+			store = join(index,old,store);
 			if(store != old) {
 				stores[index] = store;
 				worklist.add(index);
@@ -598,5 +598,5 @@ public abstract class ForwardFlowAnalysis<T> {
 	 *            --- new store to join "into" the original store.
 	 * @return
 	 */
-	public abstract T join(T original, T udpate);
+	public abstract T join(int index, T original, T udpate);
 }

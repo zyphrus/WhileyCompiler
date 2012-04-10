@@ -122,7 +122,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, Load code, Store store) {		
+	public Store transfer(int index, Load code, Store store) {
 		JvmType type = store.get(code.slot);
 		checkIsSubtype(code.type,type,index,store);
 		return store.push(type);		
@@ -272,8 +272,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		for(int i=parameters.size()-1;i>=0;--i) {
 			JvmType type = store.top();
 			checkIsSubtype(parameters.get(i),type,index,store);
-			store = store.pop();
-			
+			store = store.pop();			
 		}
 		if (code.mode != Bytecode.STATIC) {
 			JvmType type = store.top();
@@ -367,9 +366,52 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 
 	@Override
-	public Store join(Store original, Store udpate) {
-		// TODO Auto-generated method stub
-		return null;
+	public Store join(int index, Store original, Store update) {
+		if (original.stack != update.stack) {
+			throw new VerificationException(method, index, original,
+					"incompatible stack heights");
+		}
+		
+		// first check whether any changes are needed without allocating any more memory.
+		JvmType[] original_types = original.types;
+		JvmType[] update_types = update.types;
+		boolean safe = true;
+		for(int i=0;i!=original_types.length;++i) {
+			JvmType ot = original_types[i];
+			JvmType ut = update_types[i];
+			safe &= isSubtype(ot,ut);
+		}
+		if(safe) {
+			return original;
+		}
+		// changes are needed, so allocate memory!
+		JvmType[] new_types = new JvmType[original_types.length];
+		for(int i=0;i!=original_types.length;++i) {
+			JvmType ot = original_types[i];
+			JvmType ut = update_types[i];
+			new_types[i] = join(ot,ut);
+		}
+		
+		return new Store(new_types,original.stack);
+	}
+	
+	protected JvmType join(JvmType t1, JvmType t2) {
+		if (t1.equals(t2)) {
+			return t1;
+		} else if (t1 instanceof JvmType.Array && t2 instanceof JvmType.Array) {
+			JvmType.Array a1 = (JvmType.Array) t1;
+			JvmType.Array a2 = (JvmType.Array) t2;
+			// FIXME: can we do better here?
+			if (a1.element().equals(a2.element())) {
+				return a1;
+			}
+		} else if (t1 instanceof JvmType.Reference
+				&& t2 instanceof JvmType.Reference) {
+			// FIXME: could do a lot better here.
+			return JvmTypes.JAVA_LANG_OBJECT;
+		}
+
+		return JvmTypes.T_VOID;
 	}
 	
 	/**
@@ -377,28 +419,37 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	 * VerificationException.
 	 */
 	protected void checkIsSubtype(JvmType t1, JvmType t2, int index, Store store) {
-		if(t1.equals(t2)) {
+		if(isSubtype(t1,t2)) {
 			return;
+		} else {		
+			// return
+			throw new VerificationException(method, index, store, "expected type "
+					+ t1 + ", found type " + t2);
+		}
+	}
+
+	/**
+	 * Determine whether t1 is a supertype of t2 (i.e. t1 :> t2). 
+	 */
+	protected boolean isSubtype(JvmType t1, JvmType t2) {
+		if(t1.equals(t2)) {
+			return true;
 		} else if(t1 instanceof JvmType.Array && t2 instanceof JvmType.Array) {
 			JvmType.Array a1 = (JvmType.Array) t1;
 			JvmType.Array a2 = (JvmType.Array) t2;
 			// FIXME: can we do better here?
 			if(a1.element().equals(a2.element())) {
-				return;
+				return true;
 			}
 		} else if (t1.equals(JvmTypes.JAVA_LANG_OBJECT)
 				&& t2 instanceof JvmType.Array) {
-			return;
+			return true;
 		} else if(t1 instanceof JvmType.Clazz && t2 instanceof JvmType.Clazz) {
 			// FIXME: could do a lot better here.
-			return;
+			return true;
 		}
-		
-		// return
-		throw new VerificationException(method, index, store, "expected type "
-				+ t1 + ", found type " + t2);
+		return false;
 	}
-
 	/**
 	 * Indicates that the bytecode being analysis is malformed in some manner.
 	 * 
