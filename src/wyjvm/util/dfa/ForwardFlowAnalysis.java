@@ -27,7 +27,6 @@ package wyjvm.util.dfa;
 
 import wyjvm.attributes.Code;
 import wyjvm.lang.*;
-import wyjvm.util.TypeAnalysis.Store;
 
 import java.util.*;
 
@@ -100,15 +99,35 @@ public abstract class ForwardFlowAnalysis<T> {
 				merge(labels.get(i.label),trueBranch,worklist,stores);
 			} else if(bytecode instanceof Bytecode.Switch) {
 				// TODO
-			} else {
-				// sequential
-				store = transfer(index,bytecode,store);
-				// now update store for destination, ignoring those with no
-				// follow on instruction.
-				if (!(bytecode instanceof Bytecode.Return)
-						&& !(bytecode instanceof Bytecode.Throw)) {
-					merge(index + 1, store, worklist, stores);
+			} else if(bytecode instanceof Bytecode.Return) {
+				transfer(index,(Bytecode.Return) bytecode,store);
+			} else if(bytecode instanceof Bytecode.Throw) {
+				transfer(index,(Bytecode.Throw) bytecode,store);
+			} else { 
+				// all of these bytecodes are sequential and produce a single store.
+				if(bytecode instanceof Bytecode.Store) {
+					store = transfer(index, (Bytecode.Store)bytecode, store);
+				} else if(bytecode instanceof Bytecode.Load) {
+					store =  transfer(index, (Bytecode.Load)bytecode, store);
+				} else if(bytecode instanceof Bytecode.LoadConst) {
+					store = transfer(index, (Bytecode.LoadConst)bytecode, store);
+				} else if(bytecode instanceof Bytecode.Iinc) {
+					store = transfer(index, (Bytecode.Iinc) bytecode, store);
+				} else if(bytecode instanceof Bytecode.ArrayLoad) {
+					store = transfer(index, (Bytecode.ArrayLoad) bytecode, store);
+				} else if(bytecode instanceof Bytecode.ArrayStore) {
+					store = transfer(index, (Bytecode.ArrayStore) bytecode, store);
+				} else if(bytecode instanceof Bytecode.BinOp) {
+					store = transfer(index, (Bytecode.BinOp) bytecode, store);
+				} else if(bytecode instanceof Bytecode.Neg) {
+					store = transfer(index, (Bytecode.Neg) bytecode, store);
+				} else {
+					// unknown bytecode encountered --- should be dead code.
+					throw new RuntimeException(
+							"Unknown bytecode encountered in ForwardFlowAnalysis ("
+									+ bytecode + ")");
 				}
+				merge(index + 1, store, worklist, stores);
 			}
 		}
 		
@@ -148,41 +167,143 @@ public abstract class ForwardFlowAnalysis<T> {
 	
 	/**
 	 * Generate an updated a abstract store by apply the abstract effect(s) of a
-	 * given bytecode to an incoming store. In this case, the bytecode in
-	 * question will be non-branching.
+	 * store bytecode to an incoming store. 
 	 * 
 	 * @param index
 	 *            --- index in bytecode array of bytecode being analysed.
 	 * @param bytecode
-	 *            --- to be analysed.
-	 * @param store
-	 *            --- incoming abstract store.
-	 * @return
-	 */
-	public T transfer(int index, Bytecode code, T store) {
-		if(code instanceof Bytecode.Store) {
-			return transfer(index, (Bytecode.Store)code, store);
-		} else if(code instanceof Bytecode.Load) {
-			return transfer(index, (Bytecode.Load)code, store);
-		} else if(code instanceof Bytecode.Iinc) {
-
-		}
-	}
-
-	/**
-	 * Generate an updated a abstract store by apply the abstract effect(s) of a
-	 * given bytecode to an incoming store. In this case, the bytecode in
-	 * question will be non-branching.
-	 * 
-	 * @param index
-	 *            --- index in bytecode array of bytecode being analysed.
-	 * @param bytecode
-	 *            --- to be analysed.
+	 *            --- bytecode to be analysed.
 	 * @param store
 	 *            --- incoming abstract store.
 	 * @return
 	 */
 	public abstract T transfer(int index, Bytecode.Store code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * load bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.Load code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * loadconst bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.LoadConst code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * arrayload bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.ArrayLoad code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * arraystore bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.ArrayStore code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * throw bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract void transfer(int index, Bytecode.Throw code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of a
+	 * return bytecode to an incoming store. 
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract void transfer(int index, Bytecode.Return code, T store);
+		
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of
+	 * an iinc bytecode to an incoming store.
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.Iinc code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of
+	 * a binop bytecode to an incoming store.
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.BinOp code, T store);
+	
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of
+	 * a neg bytecode to an incoming store.
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.Neg code, T store);
 	
 	/**
 	 * Generate an updated a abstract store by apply the abstract effect(s) of a
