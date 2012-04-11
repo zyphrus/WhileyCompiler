@@ -182,8 +182,6 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public Store transfer(int index, ArrayStore code, Store store) {		
 		Store orig = store;
-
-		System.out.println("STORE(" + index + ") = " + store);
 		
 		JvmType item = store.top();
 		checkIsSubtype(code.type.element(),item,index,orig);
@@ -245,11 +243,15 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public Store transfer(int index, Bytecode.New code, Store store) {
 		Store orig = store;
-		// In the case of an array construction, there will be one or more
-		// dimensions provided for the array.
-		for(int i=0;i!=code.dims;++i) {
-			checkIsSubtype(JvmTypes.T_INT,store.top(),index,orig);
-			store = store.pop();
+		
+		if(code.type instanceof JvmType.Array) {
+			int dims = Math.max(1,code.dims);			
+			// In the case of an array construction, there will be one or more
+			// dimensions provided for the array.
+			for(int i=0;i!=dims;++i) {
+				checkIsSubtype(JvmTypes.T_INT,store.top(),index,orig);
+				store = store.pop();
+			}
 		}
 		return store.push(code.type);
 	}
@@ -321,7 +323,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			store = store.pop();
 		}
 		JvmType rtype = ftype.returnType();
-		if(rtype != null) {
+		if(!rtype.equals(JvmTypes.T_VOID)) {
 			return store.push(normalise(rtype));
 		} else {
 			return store;
@@ -574,10 +576,12 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	protected static class Store {
 		private JvmType[] types;
 		private int stack; // stack pointer
+		private int maxLocals;
 		
 		public Store(JvmType[] types, int maxLocals) {
 			this.types = types;
 			this.stack = maxLocals;
+			this.maxLocals = maxLocals;
 		}
 		
 		private Store(Store store) {
@@ -615,7 +619,9 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			String r = "[";
 			
 			for(int i=0;i!=stack;++i) {
-				if(i != 0) {
+				if(i == maxLocals) {
+					r = r + " | ";
+				} else if(i != 0) {
 					r = r + ", ";
 				}
 				r = r + types[i];
