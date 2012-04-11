@@ -140,6 +140,8 @@ public abstract class ForwardFlowAnalysis<T> {
 					store = transfer(index, (Bytecode.DupX1) bytecode, store);
 				} else if(bytecode instanceof Bytecode.DupX2) {
 					store = transfer(index, (Bytecode.DupX2) bytecode, store);
+				} else if(bytecode instanceof Bytecode.Swap) {
+					store = transfer(index, (Bytecode.Swap) bytecode, store);
 				} else if(bytecode instanceof Bytecode.BinOp) {
 					store = transfer(index, (Bytecode.BinOp) bytecode, store);
 				} else if(bytecode instanceof Bytecode.Neg) {
@@ -508,6 +510,20 @@ public abstract class ForwardFlowAnalysis<T> {
 	 */
 	public abstract T transfer(int index, Bytecode.DupX2 code, T store);
 
+	/**
+	 * Generate an updated a abstract store by apply the abstract effect(s) of
+	 * a swap bytecode to an incoming store.
+	 * 
+	 * @param index
+	 *            --- index in bytecode array of bytecode being analysed.
+	 * @param bytecode
+	 *            --- bytecode to be analysed.
+	 * @param store
+	 *            --- incoming abstract store.
+	 * @return
+	 */
+	public abstract T transfer(int index, Bytecode.Swap code, T store);
+	
 	/**
 	 * Generate an updated a abstract store by apply the abstract effect(s) of
 	 * a cmp bytecode to an incoming store.

@@ -52,6 +52,7 @@ import wyjvm.lang.Bytecode.Nop;
 import wyjvm.lang.Bytecode.Pop;
 import wyjvm.lang.Bytecode.PutField;
 import wyjvm.lang.Bytecode.Return;
+import wyjvm.lang.Bytecode.Swap;
 import wyjvm.lang.Bytecode.Throw;
 import wyjvm.lang.ClassFile;
 import wyjvm.lang.JvmTypes;
@@ -131,8 +132,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, Load code, Store store) {
-		JvmType type = store.get(code.slot);
-		System.out.println("STORE(" + index + "): " + store);
+		JvmType type = store.get(code.slot);		
 		checkIsSubtype(normalise(code.type),type,index,store);
 		return store.push(type);		
 	}
@@ -255,7 +255,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			checkIsSubtype(code.owner, owner, index, store);
 			store = store.pop();
 		}
-		return store.push(code.type);
+		return store.push(normalise(code.type));
 	}
 
 	@Override
@@ -267,7 +267,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			store = store.pop();
 		}
 		JvmType type = store.top();
-		checkIsSubtype(code.type, type, index, orig);
+		checkIsSubtype(code.type, normalise(type), index, orig);
 		return store.pop();
 	}
 
@@ -287,7 +287,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		List<JvmType> parameters = ftype.parameterTypes();
 		for(int i=parameters.size()-1;i>=0;--i) {
 			JvmType type = store.top();
-			checkIsSubtype(parameters.get(i),type,index,store);
+			checkIsSubtype(normalise(parameters.get(i)),type,index,store);
 			store = store.pop();			
 		}
 		if (code.mode != Bytecode.STATIC) {
@@ -297,7 +297,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		}
 		JvmType rtype = ftype.returnType();
 		if(rtype != null) {
-			return store.push(rtype);
+			return store.push(normalise(rtype));
 		} else {
 			return store;
 		}
@@ -361,6 +361,15 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		return store.push(type).push(gate2).push(gate1).push(type);
 	}
 
+	@Override
+	public Store transfer(int index, Swap code, Store store) {
+		JvmType first = store.top();
+		store = store.pop();
+		JvmType second = store.top();
+		store = store.pop();
+		return store.push(first).push(second); 
+	}
+	
 	@Override
 	public Store transfer(int index, Cmp code, Store store) {
 		Store orig = store; // saved
