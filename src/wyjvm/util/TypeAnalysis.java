@@ -329,24 +329,42 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, DupX1 code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		// Duplicate the top operand stack value and insert two values down
+		JvmType type = store.top();
+		store = store.pop();
+		JvmType gate = store.top();
+		store = store.pop();
+		return store.push(type).push(gate).push(type);
 	}
 
 	@Override
 	public Store transfer(int index, DupX2 code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		// Duplicate the top operand stack value and insert two or three values
+		// down
+		JvmType type = store.top();
+		store = store.pop();
+		JvmType gate1 = store.top();
+		store = store.pop();
+		JvmType gate2 = store.top();
+		store = store.pop();
+		return store.push(type).push(gate2).push(gate1).push(type);
 	}
 
 	@Override
 	public Store transfer(int index, Cmp code, Store store) {
-		// TODO Auto-generated method stub
-		return null;
+		Store orig = store; // saved
+		JvmType lhs = store.top();
+		store = store.pop();
+		JvmType rhs = store.top();
+		store = store.pop();
+		checkIsSubtype(JvmTypes.T_LONG,lhs,index,orig);
+		checkIsSubtype(JvmTypes.T_LONG,rhs,index,orig);
+		return store.push(JvmTypes.T_INT);
 	}
 
 	@Override
 	public Store transfer(int index, Nop code, Store store) {
+		// does what it says on the tin
 		return store;
 	}
 
@@ -419,6 +437,21 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		return JvmTypes.T_VOID;
 	}
 	
+
+	/**
+	 * Convert types into their stack based representation.
+	 * 
+	 * @param type
+	 * @return
+	 */
+	private static JvmType normalise(JvmType type) {
+		if (type.equals(JvmTypes.T_BOOL) || type.equals(JvmTypes.T_CHAR)
+				|| type.equals(JvmTypes.T_SHORT)) {
+			return JvmTypes.T_INT;
+		}
+		return type;
+	}
+	
 	/**
 	 * Check t1 is a supertype of t2 (i.e. t1 :> t2). If not, throw a
 	 * VerificationException.
@@ -431,8 +464,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			throw new VerificationException(method, index, store, "expected type "
 					+ t1 + ", found type " + t2);
 		}
-	}
-
+	}	
+	
 	/**
 	 * Determine whether t1 is a supertype of t2 (i.e. t1 :> t2). 
 	 */
