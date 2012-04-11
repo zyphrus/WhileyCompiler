@@ -82,7 +82,7 @@ public final class WyilFile {
 			// new DeadCodeElimination().apply(file);			
 
 			TypeAnalysis ta = new TypeAnalysis();
-			//ta.apply(file);
+			ta.apply(file);
 			
 			// add in actor continuations
 			// new Continuations().apply(file);		

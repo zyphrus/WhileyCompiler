@@ -125,21 +125,24 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public Store transfer(int index, wyjvm.lang.Bytecode.Store code, Store store) {
 		JvmType type = store.top();
-		checkIsSubtype(code.type,type,index,store);
-		return store.pop();
+		checkIsSubtype(normalise(code.type),type,index,store);
+		return store.pop().set(code.slot,type);
 	}
 
 	@Override
 	public Store transfer(int index, Load code, Store store) {
 		JvmType type = store.get(code.slot);
-		checkIsSubtype(code.type,type,index,store);
+		System.out.println("STORE(" + index + "): " + store);
+		checkIsSubtype(normalise(code.type),type,index,store);
 		return store.push(type);		
 	}
 
 	@Override
 	public Store transfer(int index, LoadConst code, Store store) {
 		Object constant = code.constant;		
-		if(constant instanceof Integer) {
+		if (constant instanceof Boolean || constant instanceof Byte
+				|| constant instanceof Short || constant instanceof Character
+				|| constant instanceof Integer) {
 			return store.push(JvmTypes.T_INT);
 		} else if(constant instanceof Long) {
 			return store.push(JvmTypes.T_LONG);
@@ -163,7 +166,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		if(type instanceof JvmType.Array) {
 			JvmType.Array arrType = (JvmType.Array) type;
 			checkIsSubtype(code.type,arrType,index,store);
-			return store.pop().push(arrType.element()); 			
+			return store.pop().push(normalise(arrType.element())); 			
 		} else {
 			throw new VerificationException(method, index, store,
 					"arrayload expected array type");
@@ -550,6 +553,12 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		
 		public JvmType get(int index) {
 			return types[index];
+		}
+		
+		public Store set(int slot, JvmType type) {
+			Store nstore = new Store(this);
+			nstore.types[slot] = type;
+			return nstore;
 		}
 		
 		public JvmType top() {
