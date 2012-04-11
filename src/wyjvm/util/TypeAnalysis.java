@@ -117,6 +117,10 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 				index = index + 1;
 			}
 		}
+		// set all remaining local variables to have void type
+		for(int i=index;i!=attr.maxLocals();++i) {
+			types[i] = JvmTypes.T_VOID;
+		}
 		// Now, create the stores array (one element for each bytecode);
 		Store[] stores = new Store[attr.bytecodes().size()];
 		stores[0] = new Store(types, attr.maxLocals());
