@@ -124,27 +124,32 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, wyjvm.lang.Bytecode.Store code, Store store) {
+	public Store transfer(int index, Bytecode.Store code, Store store) {
+		Store orig = store;
 		store = store.clone();
-		JvmType type = store.top();
-		checkIsSubtype(normalise(code.type),type,index,store);
-		store.pop();
+		checkMinStack(1,index,orig);
+		JvmType type = store.pop();
+		checkIsSubtype(normalise(code.type),type,index,orig);
 		store.set(code.slot,type);
 		return store; 
 	}
 
 	@Override
 	public Store transfer(int index, Load code, Store store) {
+		Store orig = store;
 		store = store.clone();
+		checkMaxStack(1,index,orig);
 		JvmType type = store.get(code.slot);		
-		checkIsSubtype(normalise(code.type),type,index,store);
+		checkIsSubtype(normalise(code.type),type,index,orig);
 		store.push(type);
 		return store;
 	}
 
 	@Override
 	public Store transfer(int index, LoadConst code, Store store) {
+		Store orig = store;
 		store = store.clone();
+		checkMaxStack(1,index,orig);
 		Object constant = code.constant;		
 		if (constant instanceof Boolean || constant instanceof Byte
 				|| constant instanceof Short || constant instanceof Character
@@ -171,7 +176,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, ArrayLoad code, Store store) {
 		Store orig = store;
 		store = store.clone();
-
+		checkMinStack(2,index,orig);
+		
 		JvmType i = store.pop();
 		checkIsSubtype(JvmTypes.T_INT,i,index,orig);
 			
@@ -191,6 +197,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, ArrayStore code, Store store) {		
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(3,index,orig);
 		
 		JvmType item = store.pop();
 		checkIsSubtype(code.type.element(),item,index,orig);	
@@ -211,6 +218,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public void transfer(int index, Throw code, Store store) {
+		checkMinStack(1,index,store);
 		JvmType type = store.top();
 		checkIsSubtype(JvmTypes.JAVA_LANG_THROWABLE, type, index, store);
 	}
@@ -218,6 +226,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public void transfer(int index, Return code, Store store) {		
 		if(code.type != null) {
+			checkMinStack(1,index,store);
 			checkIsSubtype(code.type,store.top(),index,store);
 			checkIsSubtype(method.type().returnType(),store.top(),index,store);
 		}
@@ -233,6 +242,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, BinOp code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(2,index,orig);
 		JvmType rhs = store.pop();
 		JvmType lhs = store.pop();
 		checkIsSubtype(code.type,lhs,index,orig);
@@ -245,6 +255,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, Neg code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType mhs = store.pop();
 		checkIsSubtype(code.type, mhs, index, orig);
 		store.push(code.type);
@@ -258,12 +269,14 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		
 		if (code.type instanceof JvmType.Array) {
 			int dims = Math.max(1, code.dims);
+			checkMinStack(dims,index,orig);
 			// In the case of an array construction, there will be one or more
 			// dimensions provided for the array.
 			for (int i = 0; i != dims; ++i) {
 				checkIsSubtype(JvmTypes.T_INT, store.pop(), index, orig);
 			}
 		}
+		checkMaxStack(1,index,orig);
 		store.push(code.type);
 		return store;
 	}
@@ -272,6 +285,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, boolean branch, If code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType mhs = store.pop();
 		checkIsSubtype(JvmTypes.T_INT,mhs,index,orig);
 		return store;
@@ -281,6 +295,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, boolean branch, IfCmp code, Store store) {		
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(2,index,orig);
 		JvmType rhs = store.pop();
 		JvmType lhs = store.pop();
 		checkIsSubtype(code.type,lhs,index,orig);
@@ -293,9 +308,11 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		Store orig = store;
 		store = store.clone();
 		if(code.mode != Bytecode.STATIC) { 
+			checkMinStack(1,index,orig);
 			JvmType owner = store.pop();
 			checkIsSubtype(code.owner, owner, index, orig);
 		}
+		checkMaxStack(1,index,orig);
 		store.push(normalise(code.type));
 		return store;
 	}
@@ -305,8 +322,11 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		Store orig = store;
 		store = store.clone();
 		if (code.mode != Bytecode.STATIC) {
+			checkMinStack(2,index,orig);
 			JvmType owner = store.pop();
 			checkIsSubtype(code.owner, owner, index, orig);
+		} else {
+			checkMinStack(1,index,orig);
 		}
 		JvmType type = store.pop();
 		checkIsSubtype(code.type, normalise(type), index, orig);
@@ -317,6 +337,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, ArrayLength code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		if(type instanceof JvmType.Array) {
 			throw new VerificationException(method, index, orig,
@@ -329,9 +350,15 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public Store transfer(int index, Invoke code, Store store) {
 		Store orig = store;
-		store = store.clone();
+		store = store.clone();		
 		JvmType.Function ftype = code.type;
 		List<JvmType> parameters = ftype.parameterTypes();
+		if(code.mode != Bytecode.STATIC) {
+			checkMinStack(parameters.size()+1,index,orig);
+		} else {
+			checkMinStack(parameters.size(),index,orig);
+		}
+		checkMinStack(parameters.size(),index,orig);
 		for(int i=parameters.size()-1;i>=0;--i) {
 			JvmType type = store.pop();
 			checkIsSubtype(normalise(parameters.get(i)),type,index,orig);		
@@ -339,9 +366,10 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		if (code.mode != Bytecode.STATIC) {
 			JvmType type = store.pop();
 			checkIsSubtype(code.owner, type, index, orig);
-		}
+		}		
 		JvmType rtype = ftype.returnType();
 		if(!rtype.equals(JvmTypes.T_VOID)) {
+			checkMaxStack(1,index,store);
 			store.push(normalise(rtype));
 		} 
 		return store;		
@@ -351,6 +379,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, CheckCast code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		checkIsSubtype(code.type,type,index,orig);
 		store.push(code.type);
@@ -361,6 +390,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, Conversion code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		if(!type.equals(code.from)) {
 			throw new VerificationException(method, index, orig,
@@ -374,8 +404,10 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, InstanceOf code, Store store) {
 		Store orig = store;
 		store = store.clone();		
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		checkIsSubtype(code.type,type,index,orig);
+		store.push(JvmTypes.T_INT);
 		return store;
 	}
 
@@ -383,14 +415,16 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, Pop code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		store.pop();
 		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Dup code, Store store) {
-//		Store orig = store;
-//		store = store.clone();
+		Store orig = store;
+		store = store.clone();
+		checkMaxStack(1,index,orig);
 		JvmType type = store.top();
 		store.push(type);
 		return store;
@@ -400,6 +434,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, DupX1 code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(2,index,orig);
+		checkMaxStack(1,index,orig);
 		// Duplicate the top operand stack value and insert two values down
 		JvmType type = store.pop();
 		JvmType gate = store.pop();
@@ -415,6 +451,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		// down
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(3,index,orig);
+		checkMaxStack(1,index,orig);
 		JvmType type = store.pop();
 		JvmType gate1 = store.pop();
 		JvmType gate2 = store.pop();
@@ -429,6 +467,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, Swap code, Store store) {
 		Store orig = store;
 		store = store.clone();
+		checkMinStack(2,index,orig);
 		JvmType first = store.pop();
 		JvmType second = store.pop();
 		store.push(first);
@@ -440,6 +479,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, Cmp code, Store store) {
 		Store orig = store; // saved
 		store = store.clone();
+		checkMinStack(2,index,orig);
 		JvmType lhs = store.pop();
 		JvmType rhs = store.pop();
 		checkIsSubtype(JvmTypes.T_LONG,lhs,index,orig);
@@ -458,6 +498,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, MonitorEnter code, Store store) {
 		Store orig = store; // saved
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		if (type instanceof JvmType.Primitive) {
 			throw new VerificationException(method, index, orig,
@@ -470,6 +511,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, MonitorExit code, Store store) {
 		Store orig = store; // saved
 		store = store.clone();
+		checkMinStack(1,index,orig);
 		JvmType type = store.pop();
 		if (type instanceof JvmType.Primitive) {
 			throw new VerificationException(method, index, orig,
@@ -531,6 +573,34 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			return JvmTypes.T_INT;
 		}
 		return type;
+	}
+	
+	/**
+	 * Check that there are at least min items on the stack.
+	 * 
+	 * @param min
+	 */
+	protected void checkMinStack(int min, int index, Store store) {
+		int stackSize = store.stack() - store.maxLocals();
+		if (stackSize < min) {
+			throw new VerificationException(method, index, store,
+					"bytecode requires " + min + " stack items, found only "
+							+ stackSize + " items.");
+		}
+	}
+	
+	/**
+	 * Check that there are at least max free spaces on the stack.
+	 * 
+	 * @param min
+	 */
+	protected void checkMaxStack(int max, int index, Store store) {
+		int spaces = store.maxStack() - store.stack();
+		if (max > spaces) {
+			throw new VerificationException(method, index, store,
+					"bytecode requires space for " + max + " stack items, found only "
+							+ spaces + " spaces.");
+		}
 	}
 	
 	/**
@@ -625,6 +695,18 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		
 		public Store clone() {
 			return new Store(this);
+		}
+		
+		public int stack() {
+			return stack;
+		}
+		
+		public int maxLocals() {
+			return maxLocals;
+		}
+		
+		public int maxStack() {
+			return types.length - maxLocals;
 		}
 		
 		public JvmType get(int index) {
