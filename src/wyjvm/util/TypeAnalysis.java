@@ -289,14 +289,15 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, boolean branch, If code, Store store) {
 		Store orig = store;
 		store = store.clone();
-		checkMinStack(1,index,orig);
+		checkMinStack(1, index, orig);
 		JvmType mhs = store.pop();
-		switch(code.cond) {
+		switch (code.cond) {
 		case Bytecode.If.NONNULL:
 		case Bytecode.If.NULL:
-			checkIsSubtype(JvmTypes.JAVA_LANG_OBJECT,mhs,index,orig);
+			checkIsSubtype(JvmType.Reference.class, mhs, index, orig);
+			break;
 		default:
-			checkIsSubtype(JvmTypes.T_INT,mhs,index,orig);
+			checkIsSubtype(JvmTypes.T_INT, mhs, index, orig);
 		}
 		return store;
 	}
@@ -628,6 +629,20 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}	
 	
 	/**
+	 * Check t1 is an instanceof of a give type. If not, throw a
+	 * VerificationException.
+	 */
+	protected <T extends JvmType> void checkIsSubtype(Class<T> t1, JvmType t2, int index, Store store) {
+		if(t1.isInstance(t2)) {
+			return;
+		} else {		
+			// return
+			throw new VerificationException(method, index, store, "expected type "
+					+ t1 + ", found type " + t2);
+		}
+	}	
+	
+	/**
 	 * Determine whether t1 is a supertype of t2 (i.e. t1 :> t2). 
 	 */
 	protected boolean isSubtype(JvmType t1, JvmType t2) {
@@ -642,6 +657,9 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			}
 		} else if (t1.equals(JvmTypes.JAVA_LANG_OBJECT)
 				&& t2 instanceof JvmType.Array) {
+			return true;
+		} else if (t1 instanceof JvmType.Reference
+				&& t2 instanceof JvmType.Null) {
 			return true;
 		} else if(t1 instanceof JvmType.Clazz && t2 instanceof JvmType.Clazz) {
 			// FIXME: could do a lot better here.
