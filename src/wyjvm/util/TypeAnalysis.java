@@ -62,9 +62,17 @@ import wyjvm.lang.JvmType;
 import wyjvm.util.dfa.ForwardFlowAnalysis;
 
 /**
+ * <p>
  * A forward flow analysis which determines the type of each variable and stack
  * location in a given <code>ClassFile.Method</code>. In the case of a method
  * which is not well-typed, a verification error is reported.
+ * </p>
+ * 
+ * <p>
+ * <b>NOTE:</b> this analysis currently has some problems dealing with wide
+ * types (i.e. long or double). This is because it does not correctly model the
+ * stack (which in their case requires two slots per item).
+ * </p>
  * 
  * @author David J. Pearce
  * 
