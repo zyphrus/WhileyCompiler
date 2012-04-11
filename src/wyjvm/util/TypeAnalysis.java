@@ -231,8 +231,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public void transfer(int index, Return code, Store store) {		
 		if(code.type != null) {
 			checkMinStack(1,index,store);
-			checkIsSubtype(code.type,store.top(),index,store);
-			checkIsSubtype(method.type().returnType(),store.top(),index,store);
+			checkIsSubtype(normalise(code.type),store.top(),index,store);
+			checkIsSubtype(normalise(method.type().returnType()),store.top(),index,store);
 		}
 	}
 
@@ -294,7 +294,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		switch (code.cond) {
 		case Bytecode.If.NONNULL:
 		case Bytecode.If.NULL:
-			checkIsSubtype(JvmType.Reference.class, mhs, index, orig);
+			checkIsSubtype(JvmTypes.JAVA_LANG_OBJECT, mhs, index, orig);
 			break;
 		default:
 			checkIsSubtype(JvmTypes.T_INT, mhs, index, orig);
@@ -620,20 +620,6 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	 */
 	protected void checkIsSubtype(JvmType t1, JvmType t2, int index, Store store) {
 		if(isSubtype(t1,t2)) {
-			return;
-		} else {		
-			// return
-			throw new VerificationException(method, index, store, "expected type "
-					+ t1 + ", found type " + t2);
-		}
-	}	
-	
-	/**
-	 * Check t1 is an instanceof of a give type. If not, throw a
-	 * VerificationException.
-	 */
-	protected <T extends JvmType> void checkIsSubtype(Class<T> t1, JvmType t2, int index, Store store) {
-		if(t1.isInstance(t2)) {
 			return;
 		} else {		
 			// return
