@@ -541,11 +541,11 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		// first check whether any changes are needed without allocating any more memory.
 		JvmType[] original_types = original.types;
 		JvmType[] update_types = update.types;
-		boolean changed = true;		
+		boolean changed = false;		
 		for(int i=0;i!=original.stack;++i) {
 			JvmType ot = original_types[i];
 			JvmType ut = update_types[i];
-			changed &= isSubtype(ot,ut);
+			changed |= !isSubtype(ot,ut);
 			original_types[i] = join(ot,ut);
 		}
 		
@@ -593,7 +593,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	 * @param min
 	 */
 	protected void checkMinStack(int min, int index, Store store) {
-		int stackSize = store.stack() - store.maxLocals();
+		int stackSize = store.stack();
 		if (stackSize < min) {
 			throw new VerificationException(method, index, store,
 					"bytecode requires " + min + " stack items, found only "
@@ -713,7 +713,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		}
 		
 		public int stack() {
-			return stack;
+			return stack - maxLocals;
 		}
 		
 		public int maxLocals() {
