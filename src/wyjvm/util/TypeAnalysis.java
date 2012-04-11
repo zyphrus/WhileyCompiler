@@ -109,7 +109,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		JvmType[] types = new JvmType[attr.maxLocals() + attr.maxStack()];
 		int index = 0;
 		for (JvmType t : paramTypes) {
-			types[index] = t;
+			types[index] = normalise(t);
 			if (t instanceof JvmType.Long || t instanceof JvmType.Double) {
 				// for some reason, longs and doubles occupy two slots.
 				index = index + 2;
@@ -139,7 +139,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, Load code, Store store) {
+	public Store transfer(int index, Load code, Store store) {		
 		Store orig = store;
 		store = store.clone();
 		checkMaxStack(1,index,orig);
@@ -291,7 +291,13 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		store = store.clone();
 		checkMinStack(1,index,orig);
 		JvmType mhs = store.pop();
-		checkIsSubtype(JvmTypes.T_INT,mhs,index,orig);
+		switch(code.cond) {
+		case Bytecode.If.NONNULL:
+		case Bytecode.If.NULL:
+			checkIsSubtype(JvmTypes.JAVA_LANG_OBJECT,mhs,index,orig);
+		default:
+			checkIsSubtype(JvmTypes.T_INT,mhs,index,orig);
+		}
 		return store;
 	}
 
