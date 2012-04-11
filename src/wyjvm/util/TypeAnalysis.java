@@ -183,6 +183,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store transfer(int index, ArrayStore code, Store store) {		
 		Store orig = store;
 
+		System.out.println("STORE(" + index + ") = " + store);
+		
 		JvmType item = store.top();
 		checkIsSubtype(code.type.element(),item,index,orig);
 		store = store.pop();		
@@ -242,6 +244,13 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, Bytecode.New code, Store store) {
+		Store orig = store;
+		// In the case of an array construction, there will be one or more
+		// dimensions provided for the array.
+		for(int i=0;i!=code.dims;++i) {
+			checkIsSubtype(JvmTypes.T_INT,store.top(),index,orig);
+			store = store.pop();
+		}
 		return store.push(code.type);
 	}
 	
@@ -603,7 +612,16 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		}
 		
 		public String toString() {
-			return Arrays.toString(types);
+			String r = "[";
+			
+			for(int i=0;i!=stack;++i) {
+				if(i != 0) {
+					r = r + ", ";
+				}
+				r = r + types[i];
+			}
+			
+			return r + "]";
 		}
 	}
 }
