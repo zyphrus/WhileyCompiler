@@ -179,9 +179,7 @@ public abstract class ForwardFlowAnalysis<T> {
 			stores[index] = store;
 			worklist.add(index);
 		} else {
-			store = join(index,old,store);
-			if(store != old) {
-				stores[index] = store;
+			if(merge(index,old,store)) {
 				worklist.add(index);
 			}
 		}
@@ -617,18 +615,15 @@ public abstract class ForwardFlowAnalysis<T> {
 	public abstract T transfer(int index, boolean branch, Bytecode.IfCmp code, T store);
 	
 	/**
-	 * Join two abstract stores together at a join point in the control-flow
-	 * graph.
-	 * 
-	 * <b>NOTE:</b> a special requirement is that, if the resulting store is the
-	 * same as <code>old</code>, then <code>old</code> must be returned.
+	 * Merge one abstract store into another to form a store at a join point in
+	 * the control-flow graph.
 	 * 
 	 * @param original
-	 *            --- original store to join "into". In the case of no change, this should
-	 *            be returned.
+	 *            --- original store to join "into". In the case of no change,
+	 *            this should be returned.
 	 * @param update
 	 *            --- new store to join "into" the original store.
-	 * @return
+	 * @return --- true if the store was changed.
 	 */
-	public abstract T join(int index, T original, T udpate);
+	public abstract boolean merge(int index, T original, T udpate);
 }

@@ -125,81 +125,88 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, wyjvm.lang.Bytecode.Store code, Store store) {
+		store = store.clone();
 		JvmType type = store.top();
 		checkIsSubtype(normalise(code.type),type,index,store);
-		return store.pop().set(code.slot,type);
+		store.pop();
+		store.set(code.slot,type);
+		return store; 
 	}
 
 	@Override
 	public Store transfer(int index, Load code, Store store) {
+		store = store.clone();
 		JvmType type = store.get(code.slot);		
 		checkIsSubtype(normalise(code.type),type,index,store);
-		return store.push(type);		
+		store.push(type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, LoadConst code, Store store) {
+		store = store.clone();
 		Object constant = code.constant;		
 		if (constant instanceof Boolean || constant instanceof Byte
 				|| constant instanceof Short || constant instanceof Character
 				|| constant instanceof Integer) {
-			return store.push(JvmTypes.T_INT);
+			store.push(JvmTypes.T_INT);
 		} else if(constant instanceof Long) {
-			return store.push(JvmTypes.T_LONG);
+			store.push(JvmTypes.T_LONG);
 		} else if(constant instanceof Float) {
-			return store.push(JvmTypes.T_FLOAT);
+			store.push(JvmTypes.T_FLOAT);
 		} else if(constant instanceof Double) {
-			return store.push(JvmTypes.T_DOUBLE);
+			store.push(JvmTypes.T_DOUBLE);
 		} else if(constant instanceof String) {
-			return store.push(JvmTypes.JAVA_LANG_STRING);
+			store.push(JvmTypes.JAVA_LANG_STRING);
 		} else if(constant == null) {
-			return store.push(JvmTypes.T_NULL);
+			store.push(JvmTypes.T_NULL);
 		} else {
 			throw new RuntimeException("unknown constant encountered ("
 					+ constant + ")");
 		}
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, ArrayLoad code, Store store) {
 		Store orig = store;
+		store = store.clone();
 
-		JvmType i = store.top();
+		JvmType i = store.pop();
 		checkIsSubtype(JvmTypes.T_INT,i,index,orig);
-		store = store.pop();
 			
-		JvmType type = store.top();
+		JvmType type = store.pop();
 		if(type instanceof JvmType.Array) {
 			JvmType.Array arrType = (JvmType.Array) type;
 			checkIsSubtype(code.type,arrType,index,orig);
-			return store.pop().push(normalise(arrType.element())); 			
+			store.push(normalise(arrType.element())); 			
 		} else {
 			throw new VerificationException(method, index, store,
 					"arrayload expected array type");
 		}
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, ArrayStore code, Store store) {		
 		Store orig = store;
+		store = store.clone();
 		
-		JvmType item = store.top();
-		checkIsSubtype(code.type.element(),item,index,orig);
-		store = store.pop();		
+		JvmType item = store.pop();
+		checkIsSubtype(code.type.element(),item,index,orig);	
 
-		JvmType i = store.top();
+		JvmType i = store.pop();
 		checkIsSubtype(JvmTypes.T_INT,i,index,orig);
-		store = store.pop();
 			
-		JvmType type = store.top();
+		JvmType type = store.pop();
 		if(type instanceof JvmType.Array) {
 			JvmType.Array arrType = (JvmType.Array) type;
-			checkIsSubtype(code.type,arrType,index,orig);			
-			return store.pop(); 			
+			checkIsSubtype(code.type,arrType,index,orig);			 			
 		} else {
 			throw new VerificationException(method, index, orig,
 					"arrayload expected array type");
 		}
+		return store;
 	}
 
 	@Override
@@ -225,244 +232,271 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	@Override
 	public Store transfer(int index, BinOp code, Store store) {
 		Store orig = store;
-		JvmType rhs = store.top();
-		store = store.pop();
-		JvmType lhs = store.top();
+		store = store.clone();
+		JvmType rhs = store.pop();
+		JvmType lhs = store.pop();
 		checkIsSubtype(code.type,lhs,index,orig);
 		checkIsSubtype(code.type,rhs,index,orig);
-		return store.push(code.type);
+		store.push(code.type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Neg code, Store store) {
-		JvmType mhs = store.top();
-		checkIsSubtype(code.type, mhs, index, store);
-		return store.push(code.type);
+		Store orig = store;
+		store = store.clone();
+		JvmType mhs = store.pop();
+		checkIsSubtype(code.type, mhs, index, orig);
+		store.push(code.type);
+		return store; 
 	}
 
 	@Override
 	public Store transfer(int index, Bytecode.New code, Store store) {
 		Store orig = store;
+		store = store.clone();
 		
-		if(code.type instanceof JvmType.Array) {
-			int dims = Math.max(1,code.dims);			
+		if (code.type instanceof JvmType.Array) {
+			int dims = Math.max(1, code.dims);
 			// In the case of an array construction, there will be one or more
 			// dimensions provided for the array.
-			for(int i=0;i!=dims;++i) {
-				checkIsSubtype(JvmTypes.T_INT,store.top(),index,orig);
-				store = store.pop();
+			for (int i = 0; i != dims; ++i) {
+				checkIsSubtype(JvmTypes.T_INT, store.pop(), index, orig);
 			}
 		}
-		return store.push(code.type);
+		store.push(code.type);
+		return store;
 	}
 	
 	@Override
 	public Store transfer(int index, boolean branch, If code, Store store) {
-		JvmType mhs = store.top();
-		checkIsSubtype(JvmTypes.T_INT,mhs,index,store);
-		return store.pop();
+		Store orig = store;
+		store = store.clone();
+		JvmType mhs = store.pop();
+		checkIsSubtype(JvmTypes.T_INT,mhs,index,orig);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, boolean branch, IfCmp code, Store store) {		
 		Store orig = store;
-		JvmType rhs = store.top();
-		store = store.pop();
-		JvmType lhs = store.top();
+		store = store.clone();
+		JvmType rhs = store.pop();
+		JvmType lhs = store.pop();
 		checkIsSubtype(code.type,lhs,index,orig);
 		checkIsSubtype(code.type,rhs,index,orig);
-		return store.pop();
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, GetField code, Store store) {
+		Store orig = store;
+		store = store.clone();
 		if(code.mode != Bytecode.STATIC) { 
-			JvmType owner = store.top();
-			checkIsSubtype(code.owner, owner, index, store);
-			store = store.pop();
+			JvmType owner = store.pop();
+			checkIsSubtype(code.owner, owner, index, orig);
 		}
-		return store.push(normalise(code.type));
+		store.push(normalise(code.type));
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, PutField code, Store store) {
 		Store orig = store;
-		if(code.mode != Bytecode.STATIC) { 
-			JvmType owner = store.top();
+		store = store.clone();
+		if (code.mode != Bytecode.STATIC) {
+			JvmType owner = store.pop();
 			checkIsSubtype(code.owner, owner, index, orig);
-			store = store.pop();
 		}
-		JvmType type = store.top();
+		JvmType type = store.pop();
 		checkIsSubtype(code.type, normalise(type), index, orig);
-		return store.pop();
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, ArrayLength code, Store store) {
-		JvmType type = store.top();
+		Store orig = store;
+		store = store.clone();
+		JvmType type = store.pop();
 		if(type instanceof JvmType.Array) {
-			throw new VerificationException(method, index, store,
+			throw new VerificationException(method, index, orig,
 					"arraylength requires array type, found " + type);
 		}
-		return store.push(JvmTypes.T_INT);
+		store.push(JvmTypes.T_INT);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Invoke code, Store store) {
 		Store orig = store;
+		store = store.clone();
 		JvmType.Function ftype = code.type;
 		List<JvmType> parameters = ftype.parameterTypes();
 		for(int i=parameters.size()-1;i>=0;--i) {
-			JvmType type = store.top();
-			checkIsSubtype(normalise(parameters.get(i)),type,index,orig);
-			store = store.pop();			
+			JvmType type = store.pop();
+			checkIsSubtype(normalise(parameters.get(i)),type,index,orig);		
 		}
 		if (code.mode != Bytecode.STATIC) {
-			JvmType type = store.top();
+			JvmType type = store.pop();
 			checkIsSubtype(code.owner, type, index, orig);
-			store = store.pop();
 		}
 		JvmType rtype = ftype.returnType();
 		if(!rtype.equals(JvmTypes.T_VOID)) {
-			return store.push(normalise(rtype));
-		} else {
-			return store;
-		}
+			store.push(normalise(rtype));
+		} 
+		return store;		
 	}
 
 	@Override
 	public Store transfer(int index, CheckCast code, Store store) {
-		JvmType type = store.top();
-		checkIsSubtype(code.type,type,index,store);
-		return store.pop().push(code.type);
+		Store orig = store;
+		store = store.clone();
+		JvmType type = store.pop();
+		checkIsSubtype(code.type,type,index,orig);
+		store.push(code.type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Conversion code, Store store) {
-		JvmType type = store.top();
+		Store orig = store;
+		store = store.clone();
+		JvmType type = store.pop();
 		if(!type.equals(code.from)) {
-			throw new VerificationException(method, index, store,
+			throw new VerificationException(method, index, orig,
 					"conversion expected " + code.from + ", found " + type);
 		}
-		return store.pop().push(code.to);
+		store.push(code.to);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, InstanceOf code, Store store) {
-		JvmType type = store.top();
-		checkIsSubtype(code.type,type,index,store);
-		return store.pop();
+		Store orig = store;
+		store = store.clone();		
+		JvmType type = store.pop();
+		checkIsSubtype(code.type,type,index,orig);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Pop code, Store store) {
-		return store.pop();
+		Store orig = store;
+		store = store.clone();
+		store.pop();
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Dup code, Store store) {
+//		Store orig = store;
+//		store = store.clone();
 		JvmType type = store.top();
-		return store.push(type); 
+		store.push(type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, DupX1 code, Store store) {
+		Store orig = store;
+		store = store.clone();
 		// Duplicate the top operand stack value and insert two values down
-		JvmType type = store.top();
-		store = store.pop();
-		JvmType gate = store.top();
-		store = store.pop();
-		return store.push(type).push(gate).push(type);
+		JvmType type = store.pop();
+		JvmType gate = store.pop();
+		store.push(type);
+		store.push(gate);
+		store.push(type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, DupX2 code, Store store) {
 		// Duplicate the top operand stack value and insert two or three values
 		// down
-		JvmType type = store.top();
-		store = store.pop();
-		JvmType gate1 = store.top();
-		store = store.pop();
-		JvmType gate2 = store.top();
-		store = store.pop();
-		return store.push(type).push(gate2).push(gate1).push(type);
+		Store orig = store;
+		store = store.clone();
+		JvmType type = store.pop();
+		JvmType gate1 = store.pop();
+		JvmType gate2 = store.pop();
+		store.push(type);
+		store.push(gate2);
+		store.push(gate1);
+		store.push(type);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Swap code, Store store) {
-		JvmType first = store.top();
-		store = store.pop();
-		JvmType second = store.top();
-		store = store.pop();
-		return store.push(first).push(second); 
+		Store orig = store;
+		store = store.clone();
+		JvmType first = store.pop();
+		JvmType second = store.pop();
+		store.push(first);
+		store.push(second);
+		return store;
 	}
 	
 	@Override
 	public Store transfer(int index, Cmp code, Store store) {
 		Store orig = store; // saved
-		JvmType lhs = store.top();
-		store = store.pop();
-		JvmType rhs = store.top();
-		store = store.pop();
+		store = store.clone();
+		JvmType lhs = store.pop();
+		JvmType rhs = store.pop();
 		checkIsSubtype(JvmTypes.T_LONG,lhs,index,orig);
 		checkIsSubtype(JvmTypes.T_LONG,rhs,index,orig);
-		return store.push(JvmTypes.T_INT);
+		store.push(JvmTypes.T_INT);
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, Nop code, Store store) {
-		// does what it says on the tin
+		// does what it says on the tin ;)
 		return store;
 	}
 
 	@Override
 	public Store transfer(int index, MonitorEnter code, Store store) {
-		JvmType type = store.top();
+		Store orig = store; // saved
+		store = store.clone();
+		JvmType type = store.pop();
 		if (type instanceof JvmType.Primitive) {
-			throw new VerificationException(method, index, store,
+			throw new VerificationException(method, index, orig,
 					"monitorenter bytecode requires Object type");
 		}
-		return store.pop();
+		return store;
 	}
 
 	@Override
 	public Store transfer(int index, MonitorExit code, Store store) {
-		JvmType type = store.top();
+		Store orig = store; // saved
+		store = store.clone();
+		JvmType type = store.pop();
 		if (type instanceof JvmType.Primitive) {
-			throw new VerificationException(method, index, store,
+			throw new VerificationException(method, index, orig,
 					"monitorexit bytecode requires Object type");
 		}
-		return store.pop();	}
+		return store;
+	}
 
 
 	@Override
-	public Store join(int index, Store original, Store update) {
+	public boolean merge(int index, Store original, Store update) {
 		if (original.stack != update.stack) {
 			throw new VerificationException(method, index, original,
 					"incompatible stack heights");
-		}
-		
+		}		
 		// first check whether any changes are needed without allocating any more memory.
 		JvmType[] original_types = original.types;
 		JvmType[] update_types = update.types;
-		boolean safe = true;
+		boolean changed = true;		
 		for(int i=0;i!=original_types.length;++i) {
 			JvmType ot = original_types[i];
 			JvmType ut = update_types[i];
-			safe &= isSubtype(ot,ut);
-		}
-		if(safe) {
-			return original;
-		}
-		// changes are needed, so allocate memory!
-		JvmType[] new_types = new JvmType[original_types.length];
-		for(int i=0;i!=original_types.length;++i) {
-			JvmType ot = original_types[i];
-			JvmType ut = update_types[i];
-			new_types[i] = join(ot,ut);
+			changed &= isSubtype(ot,ut);
+			original_types[i] = join(ot,ut);
 		}
 		
-		return new Store(new_types,original.stack);
+		return changed;
 	}
 	
 	protected JvmType join(JvmType t1, JvmType t2) {
@@ -589,30 +623,29 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			this.stack = store.stack;
 		}
 		
+		public Store clone() {
+			return new Store(this);
+		}
+		
 		public JvmType get(int index) {
 			return types[index];
 		}
 		
-		public Store set(int slot, JvmType type) {
-			Store nstore = new Store(this);
-			nstore.types[slot] = type;
-			return nstore;
+		public void set(int slot, JvmType type) {			
+			types[slot] = type;
 		}
 		
 		public JvmType top() {
 			return types[stack-1];
 		}
 		
-		public Store push(JvmType type) {
-			Store nstore = new Store(this);
-			nstore.types[nstore.stack++] = type;
-			return nstore;
+		public void push(JvmType type) {			
+			types[stack++] = type;
 		}
 		
-		public Store pop() {
-			Store nstore = new Store(this);
-			nstore.stack = nstore.stack-1;
-			return nstore;
+		public JvmType pop() {			
+			stack = stack-1;
+			return types[stack];
 		}
 		
 		public String toString() {
