@@ -24,7 +24,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package wyjvm.util;
 
-import java.util.Arrays;
 import java.util.List;
 
 import wyjvm.attributes.Code;
