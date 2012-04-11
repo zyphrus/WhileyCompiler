@@ -298,8 +298,8 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		checkMinStack(2,index,orig);
 		JvmType rhs = store.pop();
 		JvmType lhs = store.pop();
-		checkIsSubtype(code.type,lhs,index,orig);
-		checkIsSubtype(code.type,rhs,index,orig);
+		checkIsSubtype(normalise(code.type),lhs,index,orig);
+		checkIsSubtype(normalise(code.type),rhs,index,orig);
 		return store;
 	}
 
@@ -531,7 +531,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		JvmType[] original_types = original.types;
 		JvmType[] update_types = update.types;
 		boolean changed = true;		
-		for(int i=0;i!=original_types.length;++i) {
+		for(int i=0;i!=original.stack;++i) {
 			JvmType ot = original_types[i];
 			JvmType ut = update_types[i];
 			changed &= isSubtype(ot,ut);
