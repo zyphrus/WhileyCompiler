@@ -162,10 +162,16 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, ArrayLoad code, Store store) {
+		Store orig = store;
+
+		JvmType i = store.top();
+		checkIsSubtype(JvmTypes.T_INT,i,index,orig);
+		store = store.pop();
+			
 		JvmType type = store.top();
 		if(type instanceof JvmType.Array) {
 			JvmType.Array arrType = (JvmType.Array) type;
-			checkIsSubtype(code.type,arrType,index,store);
+			checkIsSubtype(code.type,arrType,index,orig);
 			return store.pop().push(normalise(arrType.element())); 			
 		} else {
 			throw new VerificationException(method, index, store,
@@ -174,17 +180,24 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, ArrayStore code, Store store) {
+	public Store transfer(int index, ArrayStore code, Store store) {		
+		Store orig = store;
+
+		JvmType item = store.top();
+		checkIsSubtype(code.type.element(),item,index,orig);
+		store = store.pop();		
+
+		JvmType i = store.top();
+		checkIsSubtype(JvmTypes.T_INT,i,index,orig);
+		store = store.pop();
+			
 		JvmType type = store.top();
 		if(type instanceof JvmType.Array) {
 			JvmType.Array arrType = (JvmType.Array) type;
-			checkIsSubtype(code.type,arrType,index,store);
-			Store nstore = store.pop();
-			JvmType item = nstore.top();
-			checkIsSubtype(code.type.element(),item,index,store);
+			checkIsSubtype(code.type,arrType,index,orig);			
 			return store.pop(); 			
 		} else {
-			throw new VerificationException(method, index, store,
+			throw new VerificationException(method, index, orig,
 					"arrayload expected array type");
 		}
 	}
@@ -211,12 +224,13 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, BinOp code, Store store) {
-		Store nstore = store.pop();
+		Store orig = store;
 		JvmType rhs = store.top();
-		JvmType lhs = nstore.top();
-		checkIsSubtype(code.type,lhs,index,store);
-		checkIsSubtype(code.type,rhs,index,store);
-		return nstore.push(code.type);
+		store = store.pop();
+		JvmType lhs = store.top();
+		checkIsSubtype(code.type,lhs,index,orig);
+		checkIsSubtype(code.type,rhs,index,orig);
+		return store.push(code.type);
 	}
 
 	@Override
@@ -239,13 +253,14 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	}
 
 	@Override
-	public Store transfer(int index, boolean branch, IfCmp code, Store store) {
-		Store nstore = store.pop();
+	public Store transfer(int index, boolean branch, IfCmp code, Store store) {		
+		Store orig = store;
 		JvmType rhs = store.top();
-		JvmType lhs = nstore.top();
-		checkIsSubtype(code.type,lhs,index,store);
-		checkIsSubtype(code.type,rhs,index,store);
-		return nstore.pop();
+		store = store.pop();
+		JvmType lhs = store.top();
+		checkIsSubtype(code.type,lhs,index,orig);
+		checkIsSubtype(code.type,rhs,index,orig);
+		return store.pop();
 	}
 
 	@Override
@@ -263,7 +278,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		Store orig = store;
 		if(code.mode != Bytecode.STATIC) { 
 			JvmType owner = store.top();
-			checkIsSubtype(code.owner, owner, index, store);
+			checkIsSubtype(code.owner, owner, index, orig);
 			store = store.pop();
 		}
 		JvmType type = store.top();
@@ -283,16 +298,17 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 
 	@Override
 	public Store transfer(int index, Invoke code, Store store) {
+		Store orig = store;
 		JvmType.Function ftype = code.type;
 		List<JvmType> parameters = ftype.parameterTypes();
 		for(int i=parameters.size()-1;i>=0;--i) {
 			JvmType type = store.top();
-			checkIsSubtype(normalise(parameters.get(i)),type,index,store);
+			checkIsSubtype(normalise(parameters.get(i)),type,index,orig);
 			store = store.pop();			
 		}
 		if (code.mode != Bytecode.STATIC) {
 			JvmType type = store.top();
-			checkIsSubtype(code.owner, type, index, store);
+			checkIsSubtype(code.owner, type, index, orig);
 			store = store.pop();
 		}
 		JvmType rtype = ftype.returnType();
