@@ -234,31 +234,14 @@ public class ClassFileBuilder {
 				Bytecode.SPECIAL));
 		
 		// Create the starting strand.
-		codes.add(new Bytecode.New(WHILEYSTRAND));
-		
-		// Create a copy for the call to sendSync.
-		codes.add(new Bytecode.Dup(WHILEYSTRAND));
+		codes.add(new Bytecode.New(WHILEYPROCESS));
+		codes.add(new Bytecode.Dup(WHILEYPROCESS));
 		
 		// Call the strand's constructor.
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
-		codes.add(new Bytecode.Invoke(WHILEYSTRAND, "<init>",
-				new JvmType.Function(T_VOID, WHILEYSCHEDULER), Bytecode.SPECIAL));
-		
-		// Get the ::main method out.
-		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
-		JvmType.Function ftype = new JvmType.Function(JAVA_LANG_REFLECT_METHOD,
-				JAVA_LANG_STRING, JAVA_LANG_STRING);
-		
-		codes.add(new Bytecode.LoadConst(owner.toString()));
-		codes.add(new Bytecode.LoadConst(nameMangle("main", wyft)));
-		codes.add(new Bytecode.Invoke(WHILEYUTIL, "functionRef", ftype,
-				Bytecode.STATIC));
-		
-		// Create the ::main arguments list.
-		codes.add(new Bytecode.LoadConst(1));
-		codes.add(new Bytecode.New(JAVA_LANG_OBJECT_ARRAY));
-		codes.add(new Bytecode.Dup(JAVA_LANG_OBJECT_ARRAY));
-		codes.add(new Bytecode.LoadConst(0));
+		codes.add(new Bytecode.LoadConst(null));
+		codes.add(new Bytecode.Invoke(WHILEYPROCESS, "<init>",
+				new JvmType.Function(T_VOID, WHILEYSCHEDULER, JAVA_LANG_OBJECT), Bytecode.SPECIAL));
 		
 		// Create the console record.
 		codes.add(new Bytecode.Load(0, strArr));
@@ -266,14 +249,11 @@ public class ClassFileBuilder {
 		codes.add(new Bytecode.Invoke(WHILEYUTIL, "newSystemConsole",
 				new JvmType.Function(WHILEYRECORD, new JvmType.Array(JAVA_LANG_STRING),
 						WHILEYSCHEDULER), Bytecode.STATIC));
-		
-		// Add the console to the arguments list.
-		codes.add(new Bytecode.ArrayStore(JAVA_LANG_OBJECT_ARRAY));
-		
-		// Call the send method (this does not block).
-		codes.add(new Bytecode.Invoke(WHILEYSTRAND, "sendAsync",
-				new JvmType.Function(T_VOID, JAVA_LANG_REFLECT_METHOD,
-						JAVA_LANG_OBJECT_ARRAY), Bytecode.VIRTUAL));
+
+		// Get the ::main method out.
+		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
+		codes.add(new Bytecode.Invoke(owner, nameMangle("main", wyft),
+				convertFunType(wyft), Bytecode.STATIC));
 		
 		// And return.
 		codes.add(new Bytecode.Return(null));
@@ -1556,6 +1536,8 @@ public class ClassFileBuilder {
 		JvmType.Clazz owner = new JvmType.Clazz(mid.parent().toString()
 				.replace('/', '.'), mid.last());
 		JvmType.Function type = convertFunType(c.type);
+		
+		// make the call
 		bytecodes
 				.add(new Bytecode.Invoke(owner, mangled, type, Bytecode.STATIC));
 
@@ -2751,9 +2733,9 @@ public class ClassFileBuilder {
 		ArrayList<JvmType> paramTypes = new ArrayList<JvmType>();
 		if(ft instanceof Type.Message) {
 			Type.Message mt = (Type.Message)ft; 
-			if(mt.receiver() != null) {
-				paramTypes.add(convertType(mt.receiver()));
-			}
+			paramTypes.add(convertType(mt.receiver()));
+		} else if(ft instanceof Type.Method) {
+			paramTypes.add(WHILEYPROCESS);
 		}
 		for(Type pt : ft.params()) {
 			paramTypes.add(convertType(pt));

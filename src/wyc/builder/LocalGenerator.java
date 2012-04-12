@@ -465,6 +465,9 @@ public final class LocalGenerator {
 			HashMap<String, Integer> environment) throws ResolveError {
 		Block blk = new Block(environment.size());
 
+		// TODO: following line is a temporary hack		
+		blk.append(Code.Load(Type.T_REF_ANY, 0));
+		
 		for (Expr e : fc.arguments) {
 			blk.append(generate(e, environment));
 		}

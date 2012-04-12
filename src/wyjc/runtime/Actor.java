@@ -38,23 +38,10 @@ public final class Actor extends Strand {
 	private Object state;
 
 	/**
-	 * This constructor automatically infers the scheduler executing it. If a
-	 * scheduler is not in control of the current thread, then this constructor
-	 * will fail.
-	 * 
-	 * @param state The internal state of the actor
-	 * @throws ClassCastException If the current thread isn't in the scheduler
-	 */
-	public Actor(Object state) throws ClassCastException {
-		super(((Scheduler.SchedulerThread) Thread.currentThread()).getScheduler());
-		this.state = state;
-	}
-
-	/**
 	 * @param state The internal state of the actor
 	 * @param scheduler The scheduler to use for concurrency
 	 */
-	public Actor(Object state, Scheduler scheduler) {
+	public Actor(Scheduler scheduler, Object state) {
 		super(scheduler);
 		this.state = state;
 	}

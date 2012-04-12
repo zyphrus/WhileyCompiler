@@ -161,13 +161,10 @@ public final class CodeGeneration {
 		int paramIndex = 0;
 		int nparams = fd.parameters.size();
 		// method receiver type (if applicable)
-		if (fd instanceof Message) {
-			Message md = (Message) fd;
-			if(md.receiver != null) {						
-				// TODO: fix receiver constraints
-				environment.put("this", paramIndex++);	
-				nparams++;
-			}
+		if (fd instanceof Message || fd instanceof Method) {
+			// TODO: fix receiver constraints
+			environment.put("this", paramIndex++);	
+			nparams++;
 		}
 		
 		// ==================================================================

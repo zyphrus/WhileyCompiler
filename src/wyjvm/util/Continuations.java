@@ -64,8 +64,6 @@ import wyjvm.lang.JvmType.Function;
 import wyjvm.lang.JvmType.Int;
 import wyjvm.lang.JvmType.Reference;
 import wyjvm.lang.JvmTypes;
-import wyjvm.util.dfa.StackAnalysis;
-import wyjvm.util.dfa.VariableAnalysis;
 
 /**
  * Bytecode rewriter that adds yield and resumption points on actor
