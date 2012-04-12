@@ -27,7 +27,7 @@ package whiley.lang;
 
 import java.math.BigInteger;
 
-import wyjc.runtime.concurrency.Scheduler;
+import wyjc.runtime.Scheduler;
 
 public class Actor$native {
 	public static void sleep(BigInteger millis) throws InterruptedException {

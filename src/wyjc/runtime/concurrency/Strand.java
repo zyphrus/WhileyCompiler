@@ -2,6 +2,8 @@ package wyjc.runtime.concurrency;
 
 import java.lang.reflect.InvocationTargetException;
 
+import wyjc.runtime.Scheduler;
+
 /**
  * A lightweight thread. Uses a <code>Scheduler</code> and yielding to simulate
  * threaded behaviour without the overhead associated with creating a real
@@ -69,7 +71,7 @@ public class Strand extends Messager implements Runnable {
 			isReadyToResume = shouldResumeImmediately = false;
 		}
 		
-		scheduler.scheduleResume(this);
+		scheduler.schedule(this);
 	}
 	
 	/**

@@ -32,13 +32,16 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Stack;
 
+import wyjc.runtime.Fibre;
+import wyjc.runtime.Scheduler;
+
 /**
  * A helper class for the actor hierarchy that involves the passing of messages
  * and scheduling resumptions on idle actors.
  * 
  * @author Timothy Jones
  */
-public abstract class Messager extends Yielder {
+public abstract class Messager extends Fibre {
 	
 	private final Scheduler scheduler;
 	

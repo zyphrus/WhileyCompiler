@@ -24,11 +24,13 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package wyjc.runtime.concurrency;
+package wyjc.runtime;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+
+import wyjc.runtime.concurrency.Strand;
 
 /**
  * A task scheduler for the actor system that distributes the processes amongst
@@ -37,8 +39,7 @@ import java.util.concurrent.ThreadFactory;
  * 
  * @author Timothy Jones
  */
-public final class Scheduler {
-	
+public final class Scheduler {	
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
 	
@@ -64,15 +65,14 @@ public final class Scheduler {
 	/**
 	 * Schedules the given object to resume as soon as a thread is available.
 	 * 
-	 * @param resumable
+	 * @param strand
 	 *          The object to schedule a resume for.
 	 */
-	public void scheduleResume(final Strand resumable) {				
-		pool.execute(resumable);
+	public void schedule(final Strand strand) {				
+		pool.execute(strand);
 	}
 	
 	public void shutdown() {
-		System.out.println("SHUTDOWN CALLED");
 		pool.shutdown();
 	}
 	

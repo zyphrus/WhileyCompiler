@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
-import wyjc.runtime.concurrency.Scheduler;
 
 public class Util {
 
