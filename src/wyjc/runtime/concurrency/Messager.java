@@ -75,9 +75,8 @@ public abstract class Messager extends Yielder {
 	 *           The thread block was interrupted (cannot occur for
 	 *           intra-scheduler message sends)
 	 */
-	public MessageFuture sendSync(Method method, Object[] args)
+	public MessageFuture sendSync(Messager sender, Method method, Object[] args)
 	    throws InterruptedException {
-		Messager sender = scheduler.getCurrentStrand();
 		
 		SyncMessage senderMessage = null;
 		if (sender != null && sender.currentMessage instanceof SyncMessage) {
@@ -88,49 +87,14 @@ public abstract class Messager extends Yielder {
 		
 		// Cause a failure if a deadlock will occur.
 		SyncMessage check = message;
-		Stack<Messager> stack = new Stack<Messager>();
-		stack.push(this);
 		
 		while (check != null) {
-			stack.push(check.sender);
-			
-			if (check.sender == this) {
-				String out = "Deadlock: ";
-				while (stack.size() > 1) {
-					out += stack.pop() + " -> ";
-				}
-				throw new RuntimeException(out + stack.pop());
-			}
-			
+			if (check.sender == this) {				
+				throw new RuntimeException("deadlock");
+			}			
 			check = check.senderMessage;
 		}
-		
-		// The sender may be null if the message was sent outside of the scheduler.
-		if (sender != null) {
-			synchronized (this) {
-				// If this actor isn't busy, run the message on the current thread.
-				if (currentMessage == null) {
-					currentMessage = message;
-					message.directCall = true;
-					
-					controlThisThread();
-					resume();
-					
-					sender.controlThisThread();
-					
-					// If the message completed, just return its final value.
-					if (!isYielded()) {
-						sender.shouldYield = false;
-						return message.future;
-					}
-					
-					message.directCall = false;
-				}
-			}
-			
-			sender.shouldYield = true;
-		}
-		
+	
 		addMessage(message);
 		
 		if (sender == null) {
@@ -174,12 +138,7 @@ public abstract class Messager extends Yielder {
 	/**
 	 * Resume the current message (The message may not have started yet).
 	 */
-	protected abstract void resume();
-	
-	/**
-	 * Force this messager to take control of the current thread.
-	 */
-	protected abstract void controlThisThread();
+	protected abstract void run();
 	
 	/**
 	 * Takes a message and either adds it to the queue orat sent this message, if

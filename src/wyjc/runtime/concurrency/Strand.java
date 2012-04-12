@@ -18,7 +18,7 @@ import java.lang.reflect.InvocationTargetException;
  * 
  * @author Timothy Jones
  */
-public class Strand extends Messager {
+public class Strand extends Messager implements Runnable {
 	
 	private final Scheduler scheduler;
 	
@@ -39,8 +39,6 @@ public class Strand extends Messager {
 	 */
 	private boolean isReadyToResume = true;
 	
-	private long wakeAt = -1;
-	
 	/**
 	 * @param scheduler
 	 *          The scheduler to use for concurrency
@@ -58,11 +56,6 @@ public class Strand extends Messager {
 		}
 		
 		return null;
-	}
-	
-	@Override
-	protected void controlThisThread() {
-		scheduler.setCurrentStrand(this);
 	}
 	
 	@Override
@@ -92,16 +85,7 @@ public class Strand extends Messager {
 		Thread.sleep(milliseconds);
 	}
 	
-	public void resume() {
-//		if (wakeAt != -1) {
-//			if (System.currentTimeMillis() < wakeAt) {
-//				scheduleResume();
-//				return;
-//			} else {
-//				wakeAt = -1;
-//			}
-//		}
-		
+	public void run() {
 		try {
 			Object result = invokeCurrentMethod();
 			

@@ -1621,6 +1621,7 @@ public class ClassFileBuilder {
 		}
 		
 		// finally, setup the stack for the send
+		bytecodes.add(new Bytecode.Load(0,WHILEYMESSAGER));
 		JvmType.Function ftype = new JvmType.Function(JAVA_LANG_REFLECT_METHOD,
 				JAVA_LANG_STRING, JAVA_LANG_STRING);
 		
@@ -1632,7 +1633,7 @@ public class ClassFileBuilder {
 		bytecodes.add(new Bytecode.Load(freeSlot, arrT));
 		
 		ftype = new JvmType.Function(c.synchronous ? WHILEYFUTURE : T_VOID,
-				JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
+				WHILEYMESSAGER, JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
 		
 		bytecodes.add(new Bytecode.Invoke(WHILEYMESSAGER, c.synchronous ?
 				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));

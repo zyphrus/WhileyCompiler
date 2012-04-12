@@ -39,10 +39,6 @@ import java.util.concurrent.ThreadFactory;
  */
 public final class Scheduler {
 	
-	// Count of the number of scheduled tasks. When it returns to 0, the thread
-	// pool will shut down.
-	private int scheduledCount = 0;
-	
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
 	
@@ -71,84 +67,13 @@ public final class Scheduler {
 	 * @param resumable
 	 *          The object to schedule a resume for.
 	 */
-	public void scheduleResume(final Strand resumable) {
-		synchronized (this) {
-			scheduledCount += 1;
-		}
-		
-		pool.execute(new Runnable() {
-			
-			@Override
-			public void run() {
-				SchedulerThread thread = (SchedulerThread) Thread.currentThread();
-				
-				try {
-					thread.currentStrand = resumable;
-					resumable.resume();
-				} catch (Throwable th) {
-					System.err.println("Warning - actor resumption threw an exception.");
-					th.printStackTrace();
-				} finally {
-					thread.currentStrand = resumable;
-				}				
-			}
-			
-		});
+	public void scheduleResume(final Strand resumable) {				
+		pool.execute(resumable);
 	}
 	
 	public void shutdown() {
+		System.out.println("SHUTDOWN CALLED");
 		pool.shutdown();
-	}
-	
-	/**
-	 * Retrieves the strand controlling the current thread if the current thread
-	 * is in this scheduler's thread pool.
-	 * 
-	 * Messages will mostly arrive from elsewhere in the scheduler, so it is
-	 * possible to access the strand that sent them.
-	 * 
-	 * Note, however, that it is possible for a thread outside of the scheduler to
-	 * send a message. When a Whiley program first boots, the main method sets up
-	 * a new scheduler, an initial strand, and then sends it an asynchronous
-	 * message. Inter-scheduler message sends will also be unable to retrieve a
-	 * sender, otherwise the sender would be pulled over into this scheduler.
-	 * 
-	 * If this method is invoked from outside of this scheduler's thread pool,
-	 * then the result will be null.
-	 * 
-	 * @return The strand controlling the current thread, or null
-	 */
-	public Strand getCurrentStrand() {
-		Thread currentThread = Thread.currentThread();
-		
-		if (currentThread instanceof SchedulerThread) {
-			SchedulerThread thread = (SchedulerThread) currentThread;
-			
-			if (thread.getScheduler() == this) {
-				return thread.getCurrentStrand();
-			}
-		}
-		
-		return null;
-	}
-	
-	/**
-	 * Notifies the current thread that its controlling strand has changed. Does
-	 * nothing if invoked outside the scheduler. For package use only.
-	 * 
-	 * @param strand
-	 *          The strand now controlling the current thread
-	 */
-	void setCurrentStrand(Strand strand) {
-		Thread currentThread = Thread.currentThread();
-		
-		if (currentThread instanceof SchedulerThread) {
-			SchedulerThread thread = (SchedulerThread) currentThread;
-			
-			if (thread.getScheduler() == this) {
-				thread.currentStrand = strand;
-			}
-		}
 	}
 	
 	/**
@@ -157,8 +82,7 @@ public final class Scheduler {
 	 * 
 	 * @author Timothy Jones
 	 */
-	public class SchedulerThread extends Thread {
-		
+	public class SchedulerThread extends Thread {		
 		private Strand currentStrand;
 		
 		private SchedulerThread(Runnable task) {
