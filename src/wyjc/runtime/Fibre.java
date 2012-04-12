@@ -37,10 +37,15 @@ import java.util.Stack;
  * @author Timothy Jones
  */
 public abstract class Fibre {	
+	private final Scheduler scheduler;
 	private final Stack<State> state = new Stack<State>();
 	private State current = null;
 	
 	private boolean yielded = false;
+	
+	public Fibre(Scheduler scheduler) {
+		this.scheduler = scheduler;
+	}
 	
 	/**
 	 * @return Whether the object is currently yielding or has yielded

@@ -25,6 +25,9 @@
 
 package wyjc.runtime;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import wyjc.runtime.concurrency.Strand;
 
 /**
@@ -32,8 +35,16 @@ import wyjc.runtime.concurrency.Strand;
  * 
  * @author Timothy Jones
  */
-public final class Actor extends Strand {
-
+public final class Actor extends Fibre {	
+	/**
+	 * Actor's mail box
+	 */
+	private final Message[] mailbox;
+	private volatile int count;
+	
+	/**
+	 * Actor's state
+	 */
 	private Object state;
 
 	/**
@@ -42,6 +53,8 @@ public final class Actor extends Strand {
 	 */
 	public Actor(Scheduler scheduler, Object state) {
 		super(scheduler);
+		this.mailbox = new Message[10];
+		this.count = 0;
 		this.state = state;
 	}
 
@@ -61,9 +74,99 @@ public final class Actor extends Strand {
 		return this;
 	}
 
+	/**
+	 * Send a message asynchronously to this actor. If the mailbox is full, then
+	 * this will in fact block.
+	 * 
+	 * @param from
+	 *            --- sender of this message.
+	 * @param method
+	 *            --- the "message"
+	 * @param arguments
+	 *            --- the message "arguments"
+	 */
+	public void asyncSend(Actor from, Method method, Object[] arguments) {		
+		arguments[0] = this;
+		Message msg = new Message(method, arguments, null);
+		synchronized (mailbox) {
+			// FIXME: when the mailbox gets full we need to yield
+			mailbox[count++] = msg;
+		}
+	}
+	
+	/**
+	 * Send a message synchronously to this actor. This will block the sender
+	 * until the message is received, and a return value generated.
+	 * 
+	 * @param sender
+	 *            --- sender of this message.
+	 * @param method
+	 *            --- the "message"
+	 * @param arguments
+	 *            --- the message "arguments"
+	 */
+	public Object syncSend(Actor sender, Method method, Object[] arguments) {
+		arguments[0] = this;
+		Message msg = new Message(method, arguments, sender);
+		
+		synchronized (mailbox) {
+			// FIXME: when the mailbox gets full we need to do something?
+			mailbox[count++] = msg;
+		}
+		
+		sender.yield(?);
+		
+		return msg.get();
+	}
+	
+	public void run() {		
+		// this is where the action happens
+		while(1==1) {
+			try {				
+				Message msg;
+				synchronized(mailbox) {
+					msg = mailbox[count-1];
+				}
+				msg.result = msg.method.invoke(null, msg.arguments);
+				
+				// TODO: process suspend
+				
+				Fibre sender = msg.sender;
+				if(sender != null) {
+					sender.schedule();
+				} 
+			} catch(InterruptedException e) {
+				// do nothing I guess
+			} catch(IllegalAccessException e) {
+				// do nothing I guess
+			} catch(InvocationTargetException ex) {
+				// not sure what to do!
+				Throwable e = ex.getCause();
+				if(e instanceof RuntimeException) {
+					RuntimeException re = (RuntimeException) e;
+					throw re;
+				}
+				// do nothing I guess
+			}
+		}
+	}
+	
 	@Override
 	public String toString() {
 		return state + "@" + System.identityHashCode(this);
 	}
 
+	private final static class Message {
+		public final Method method;
+		public final Object[] arguments;
+		public final Fibre sender; // for synchronous messages
+		public volatile boolean ready = false;
+		public volatile Object result;
+		
+		public Message(Method method, Object[] arguments, Fibre sender) {
+			this.method = method;
+			this.arguments = arguments;
+			this.sender = sender;
+		}						
+	}
 }
