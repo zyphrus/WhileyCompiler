@@ -30,8 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
-import wyjc.runtime.concurrency.Strand;
-
 /**
  * A task scheduler for the actor system that distributes the processes amongst
  * a certain number of threads. Once all threads are busy newly scheduled tasks
@@ -48,7 +46,7 @@ public final class Scheduler {
 	 * booted up as needed, rather than all at once.
 	 */
 	public Scheduler() {
-		pool = Executors.newCachedThreadPool(new SchedulerThreadFactory());
+		pool = Executors.newCachedThreadPool();
 	}
 	
 	/**
@@ -59,7 +57,7 @@ public final class Scheduler {
 	 */
 	public Scheduler(int threadCount) {
 		pool =
-		    Executors.newFixedThreadPool(threadCount, new SchedulerThreadFactory());
+		    Executors.newFixedThreadPool(threadCount);
 	}
 	
 	/**
@@ -68,52 +66,11 @@ public final class Scheduler {
 	 * @param strand
 	 *          The object to schedule a resume for.
 	 */
-	public void schedule(final Strand strand) {				
-		pool.execute(strand);
+	public void schedule(final Actor actor) {				
+		pool.execute(actor);
 	}
 	
 	public void shutdown() {
 		pool.shutdown();
-	}
-	
-	/**
-	 * A thread that can expose this scheduler and the currently controlling
-	 * strand so new tasks can be spawned more easily by those already using it.
-	 * 
-	 * @author Timothy Jones
-	 */
-	public class SchedulerThread extends Thread {		
-		private Strand currentStrand;
-		
-		private SchedulerThread(Runnable task) {
-			super(task);
-		}
-		
-		/**
-		 * @return The scheduler in charge of this thread.
-		 */
-		public Scheduler getScheduler() {
-			return Scheduler.this;
-		}
-		
-		public Strand getCurrentStrand() {
-			return currentStrand;
-		}
-		
-	}
-	
-	/**
-	 * The factory for <code>SchedulerThread</code>.
-	 * 
-	 * @author Timothy Jones
-	 */
-	private class SchedulerThreadFactory implements ThreadFactory {
-		
-		@Override
-		public Thread newThread(Runnable task) {
-			return new SchedulerThread(task);
-		}
-		
-	}
-	
+	}	
 }

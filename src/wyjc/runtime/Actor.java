@@ -28,14 +28,12 @@ package wyjc.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import wyjc.runtime.concurrency.Strand;
-
 /**
  * A Whiley process, which mirrors an actor in the Actor Model of concurrency.
  * 
  * @author Timothy Jones
  */
-public final class Actor extends Fibre {	
+public final class Actor extends Fibre implements Runnable {	
 	/**
 	 * Actor's mail box
 	 */
@@ -88,6 +86,7 @@ public final class Actor extends Fibre {
 	public void asyncSend(Actor from, Method method, Object[] arguments) {		
 		arguments[0] = this;
 		Message msg = new Message(method, arguments, null);
+		
 		synchronized (mailbox) {
 			// FIXME: when the mailbox gets full we need to yield
 			mailbox[count++] = msg;
@@ -106,17 +105,24 @@ public final class Actor extends Fibre {
 	 *            --- the message "arguments"
 	 */
 	public Object syncSend(Actor sender, Method method, Object[] arguments) {
-		arguments[0] = this;
-		Message msg = new Message(method, arguments, sender);
-		
-		synchronized (mailbox) {
-			// FIXME: when the mailbox gets full we need to do something?
-			mailbox[count++] = msg;
+		if(sender.isYielded()) {
+			// indicates we are resuming from the yield below.  
+			Message msg = (Message) sender.getObject(1);
+			return msg.result;
+		} else {
+			arguments[0] = this;
+			Message msg = new Message(method, arguments, sender);
+
+			synchronized (mailbox) {
+				// FIXME: when the mailbox gets full we need to do something?
+				mailbox[count++] = msg;
+			}
+
+			// yield the sender actor here.
+			sender.yield(0);
+
+			return null;
 		}
-		
-		sender.yield(?);
-		
-		return msg.get();
 	}
 	
 	public void run() {		
@@ -128,15 +134,17 @@ public final class Actor extends Fibre {
 					msg = mailbox[count-1];
 				}
 				msg.result = msg.method.invoke(null, msg.arguments);
-				
-				// TODO: process suspend
-				
-				Fibre sender = msg.sender;
-				if(sender != null) {
-					sender.schedule();
-				} 
-			} catch(InterruptedException e) {
-				// do nothing I guess
+				if(this.isYielded()) {
+					// if we get here, then this actor has been suspended whilst
+					// processing the given message. In such case, we simply
+					// return.
+					System.out.println("SUSPENDING");
+					return;
+				} else {
+					// Processing the message has completed.
+					Fibre sender = msg.sender;
+					// TODO: notify sender 
+				}
 			} catch(IllegalAccessException e) {
 				// do nothing I guess
 			} catch(InvocationTargetException ex) {
