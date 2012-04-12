@@ -39,6 +39,7 @@ import java.util.Stack;
 
 import wyil.util.Pair;
 import wyjvm.attributes.Code;
+import wyjvm.attributes.StackMapTable;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.CheckCast;
 import wyjvm.lang.Bytecode.Dup;
@@ -62,6 +63,7 @@ import wyjvm.lang.JvmType.Clazz;
 import wyjvm.lang.JvmType.Function;
 import wyjvm.lang.JvmType.Int;
 import wyjvm.lang.JvmType.Reference;
+import wyjvm.lang.JvmTypes;
 import wyjvm.util.dfa.StackAnalysis;
 import wyjvm.util.dfa.VariableAnalysis;
 
@@ -96,11 +98,8 @@ public class Continuations {
 	
 	public void apply(Method method, Code code) {
 		List<Bytecode> bytecodes = code.bytecodes();
-		
+		StackMapTable stackMap = code.attribute(StackMapTable.class);
 		int location = 0;
-		
-		VariableAnalysis variableAnalysis = new VariableAnalysis(method);
-		StackAnalysis stackAnalysis = new StackAnalysis(method);
 		
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
@@ -117,13 +116,13 @@ public class Continuations {
 					    T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 					
-					Map<Integer, JvmType> types = variableAnalysis.typesAt(i + 1);
-					Stack<JvmType> stack = stackAnalysis.typesAt(i + 1);
+					// NB: get frame for location after the invoke
+					StackMapTable.Frame frame = stackMap.frameAt(location+1);
 					
 					i =
 					    addResume(bytecodes,
-					        addYield(method, bytecodes, i, location, types, stack),
-					        location, types, stack);
+					        addYield(method, bytecodes, i, location, frame),
+					        location, frame);
 					
 					bytecodes.add(++i, new Label("skip" + location));
 					
@@ -225,38 +224,45 @@ public class Continuations {
 	}
 	
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-	    int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    int location, StackMapTable.Frame frame) {
 		i = addStrand(bytecodes, i);
 		
 		bytecodes.add(++i, new LoadConst(location));
 		bytecodes.add(++i, new Invoke(YIELDER, "yield",
 		    new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
 		
-		for (int var : types.keySet()) {
-			JvmType type = types.get(var);
-			i = addStrand(bytecodes, i);
-			bytecodes.add(++i, new LoadConst(var));
-			bytecodes.add(++i, new Load(var, type));
-			
-			if (type instanceof Reference) {
-				type = JAVA_LANG_OBJECT;
+		// TODO: incorporate liveness information here so that we don't store
+		// variables which are no longer live. This would help to cut down
+		// potentially expensive boxing operations. It also simply reduces the
+		// number of bytecode instructions required to implement the yield.
+		for (int var = 0; var != frame.numLocals; var++) {
+			JvmType type = frame.types[var];
+			if(!type.equals(JvmTypes.T_VOID)) { 
+				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new LoadConst(var));
+				bytecodes.add(++i, new Load(var, type));
+
+				if (type instanceof Reference) {
+					type = JAVA_LANG_OBJECT;
+				}
+
+				bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID,
+						T_INT, type), Bytecode.VIRTUAL));
 			}
-			
-			bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID, T_INT,
-			    type), Bytecode.VIRTUAL));
 		}
 		
-		for (int j = stack.size() - 1; j >= 0; --j) {
-			JvmType type = stack.get(j);
+		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+			JvmType type = frame.types[j];
+			System.out.println("TYPE(" + j + ")="+type);
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Swap());
-			
+
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
-			
-			bytecodes.add(++i, new Invoke(YIELDER, "push",
-			    new Function(T_VOID, type), Bytecode.VIRTUAL));
+
+			bytecodes.add(++i, new Invoke(YIELDER, "push", new Function(T_VOID,
+					type), Bytecode.VIRTUAL));
 		}
 		
 		JvmType returnType = method.type().returnType();
@@ -271,10 +277,11 @@ public class Continuations {
 	}
 	
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-	    Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    StackMapTable.Frame frame) {
 		bytecodes.add(++i, new Label("resume" + location));
 		
-		for (JvmType type : stack) {
+		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+			JvmType type = frame.types[j];
 			JvmType methodType = type;
 			i = addStrand(bytecodes, i);
 			
@@ -295,27 +302,30 @@ public class Continuations {
 			}
 		}
 		
-		for (int var : types.keySet()) {
-			JvmType type = types.get(var), methodType = type;
-			i = addStrand(bytecodes, i);
-			bytecodes.add(++i, new LoadConst(var));
-			
-			String name;
-			if (type instanceof Reference) {
-				name = "getObject";
-				methodType = JAVA_LANG_OBJECT;
-			} else {
-				// This is a bit of a hack. Method names in Yielder MUST match the
-				// class names in JvmType.
-				name = "get" + type.getClass().getSimpleName();
+		for (int var = 0; var != frame.numLocals; var++) {
+			JvmType type = frame.types[var];
+			if(!type.equals(JvmTypes.T_VOID)) {
+				JvmType methodType = type;
+				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new LoadConst(var));
+
+				String name;
+				if (type instanceof Reference) {
+					name = "getObject";
+					methodType = JAVA_LANG_OBJECT;
+				} else {
+					// This is a bit of a hack. Method names in Yielder MUST match the
+					// class names in JvmType.
+					name = "get" + type.getClass().getSimpleName();
+				}
+
+				bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
+						T_INT), Bytecode.VIRTUAL));
+				if (type instanceof Reference) {
+					bytecodes.add(++i, new CheckCast(type));
+				}
+				bytecodes.add(++i, new Store(var, type));
 			}
-			
-			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
-			    T_INT), Bytecode.VIRTUAL));
-			if (type instanceof Reference) {
-				bytecodes.add(++i, new CheckCast(type));
-			}
-			bytecodes.add(++i, new Store(var, type));
 		}
 		
 		i = addStrand(bytecodes, i);

@@ -32,6 +32,7 @@ import java.util.Set;
 
 import wyjvm.io.BinaryOutputStream;
 import wyjvm.lang.BytecodeAttribute;
+import wyjvm.lang.Constant;
 import wyjvm.lang.Constant.Info;
 import wyjvm.lang.JvmType;
 
@@ -53,7 +54,9 @@ public class StackMapTable implements BytecodeAttribute {
 
 	@Override
 	public String name() {
-		return "StackMapTable";
+		// FIXME: put back the right name when the attribute is written properly
+		// to disk.
+		return "StackMapTable2";
 	}
 
 	@Override
@@ -61,12 +64,15 @@ public class StackMapTable implements BytecodeAttribute {
 			Map<Info, Integer> constantPool, ClassLoader loader)
 			throws IOException {
 		// TODO: implement me!		
+		// only empty attribute written
+		writer.write_u2(constantPool.get(new Constant.Utf8(name())));
+		writer.write_u4(0);
 	}
 
 	@Override
 	public void addPoolItems(Set<Info> constantPool, ClassLoader loader) {
 		// TODO: implement me!
-		
+		Constant.addPoolItem(new Constant.Utf8(name()), constantPool);
 	}
 
 	@Override
@@ -115,13 +121,35 @@ public class StackMapTable implements BytecodeAttribute {
 			if (types.length < (numLocals + numStackItems)) {
 				throw new IllegalArgumentException("invalid number of types");
 			}
-			this.offset = offset;
 			this.numLocals = numLocals;
 			this.numStackItems = numStackItems;
 			this.types = new JvmType[numLocals + numStackItems];
 			for (int i = 0; i != this.types.length; ++i) {
 				this.types[i] = types[i];
 			}
+		}
+		
+
+		public String toString() {
+			String r = "[";
+			
+			for(int i=0;i!=numLocals;++i) {
+				if(i != 0) {
+					r = r + ", ";
+				}
+				r = r + types[i];
+			}
+			
+			r = r + " | ";
+			
+			for(int i=0;i!=numStackItems;++i) {
+				if(i != 0) {
+					r = r + ", ";
+				}
+				r = r + types[numLocals + i];
+			}
+			
+			return r + "]";
 		}
 	}
 }

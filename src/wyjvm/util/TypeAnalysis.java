@@ -27,6 +27,7 @@ package wyjvm.util;
 import java.util.List;
 
 import wyjvm.attributes.Code;
+import wyjvm.attributes.StackMapTable;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.ArrayLength;
 import wyjvm.lang.Bytecode.ArrayLoad;
@@ -65,7 +66,9 @@ import wyjvm.util.dfa.ForwardFlowAnalysis;
  * <p>
  * A forward flow analysis which determines the type of each variable and stack
  * location in a given <code>ClassFile.Method</code>. In the case of a method
- * which is not well-typed, a verification error is reported.
+ * which is not well-typed, a verification error is reported. For valid methods,
+ * a <code>StackMapTable</code> attribute is added to the <code>Code</code>
+ * attribute (and any existing one replaced).
  * </p>
  * 
  * <p>
@@ -81,16 +84,18 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	private ClassFile.Method method; // currently being analysed
 	
 	/**
-	 * Apply the analysis to every method in a classfile.
+	 * Apply the analysis to every method in a classfile, creating the necessary
+	 * <code>StackMapTable</code> attributes.
 	 * 
 	 * @param cf
 	 */
 	public void apply(ClassFile cf) {
 		for (ClassFile.Method method : cf.methods()) {
-			apply(method);
+			Store[] stores = apply(method);
+			addStackMapTable(method,stores);
 		}
 	}
-
+	
 	/**
 	 * Apply the analysis to a given method in a classfile.
 	 * 
@@ -99,6 +104,23 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 	public Store[] apply(ClassFile.Method method) {
 		this.method = method;
 		return super.apply(method);
+	}
+	
+	protected void addStackMapTable(ClassFile.Method method, Store[] stores) {
+		Code attr = method.attribute(Code.class);
+		if (attr == null) {
+			// sanity check
+			throw new IllegalArgumentException(
+					"cannot apply forward flow analysis on method without code attribute");
+		}
+		StackMapTable.Frame[] frames = new StackMapTable.Frame[stores.length];
+		for (int i = 0; i != frames.length; ++i) {
+			Store store = stores[i];
+			System.out.println("STORE(" + i +") ="+ store);
+			frames[i] = new StackMapTable.Frame(store.maxLocals, store.stack - store.maxLocals,
+					store.types);
+		}
+		attr.attributes().add(new StackMapTable(frames));
 	}
 	
 	@Override
@@ -705,6 +727,7 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 		private Store(Store store) {
 			this.types = store.types.clone();
 			this.stack = store.stack;
+			this.maxLocals = store.maxLocals;
 		}
 		
 		public Store clone() {
