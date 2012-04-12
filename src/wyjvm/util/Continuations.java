@@ -253,7 +253,6 @@ public class Continuations {
 		
 		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
-			System.out.println("TYPE(" + j + ")="+type);
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Swap());
 

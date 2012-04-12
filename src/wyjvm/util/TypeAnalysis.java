@@ -113,12 +113,19 @@ public class TypeAnalysis extends ForwardFlowAnalysis<TypeAnalysis.Store>{
 			throw new IllegalArgumentException(
 					"cannot apply forward flow analysis on method without code attribute");
 		}
+		StackMapTable existing = attr.attribute(StackMapTable.class);
+		if(existing != null) {
+			attr.attributes().remove(existing);
+		}
 		StackMapTable.Frame[] frames = new StackMapTable.Frame[stores.length];
 		for (int i = 0; i != frames.length; ++i) {
 			Store store = stores[i];
-			System.out.println("STORE(" + i +") ="+ store);
-			frames[i] = new StackMapTable.Frame(store.maxLocals, store.stack - store.maxLocals,
-					store.types);
+			if(store != null) {
+				frames[i] = new StackMapTable.Frame(store.maxLocals, store.stack - store.maxLocals,
+						store.types);
+			} else {
+				// dead code
+			}
 		}
 		attr.attributes().add(new StackMapTable(frames));
 	}
