@@ -90,22 +90,14 @@ public final class Scheduler {
 					th.printStackTrace();
 				} finally {
 					thread.currentStrand = resumable;
-				}
-				
-				synchronized (Scheduler.this) {
-					scheduledCount -= 1;
-				}
-				
-				if (scheduledCount == 0) {
-					pool.shutdown();
-					
-					synchronized (Scheduler.this) {
-						Scheduler.this.notifyAll();
-					}
-				}
+				}				
 			}
 			
 		});
+	}
+	
+	public void shutdown() {
+		pool.shutdown();
 	}
 	
 	/**

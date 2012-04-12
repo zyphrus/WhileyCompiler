@@ -255,6 +255,11 @@ public class ClassFileBuilder {
 		codes.add(new Bytecode.Invoke(owner, nameMangle("main", wyft),
 				convertFunType(wyft), Bytecode.STATIC));
 		
+		// shutdown the scheduler
+		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
+		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "shutdown",
+				new JvmType.Function(T_VOID), Bytecode.VIRTUAL));
+		
 		// And return.
 		codes.add(new Bytecode.Return(null));
 
