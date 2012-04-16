@@ -33,7 +33,7 @@ public native void sleep(int millis):
 
 public nat|null getThreadCount():
     count = getThreadCountUnfiltered()
-    if count < 0:
+    if count == 0:
         return null
     else:
         return count

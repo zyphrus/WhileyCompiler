@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
-import wyjc.runtime.concurrency.Scheduler;
 
 public class Util {
 
@@ -1032,7 +1031,7 @@ public class Util {
 
 	public static Record newSystemConsole(String[] args, Scheduler scheduler) {
 		// Not sure what the default value should be yet!!!
-		Actor sysout = new Actor(null, scheduler);
+		Actor sysout = new Actor(scheduler,null);
 		Record data = new Record();
 		data.put("out", sysout);		
 		data.put("args", fromStringList(args));

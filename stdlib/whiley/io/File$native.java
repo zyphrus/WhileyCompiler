@@ -37,6 +37,7 @@ import wyjc.runtime.List;
 import wyjc.runtime.Record;
 
 public class File$native {
+	
 	public static Actor Reader(String filename) {
 		Record r = new Record();
 		try {			
@@ -141,4 +142,5 @@ public class File$native {
 	public static void flush() {		
 		System.out.flush();
 	}
+	
 }

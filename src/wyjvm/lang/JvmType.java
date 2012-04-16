@@ -39,8 +39,7 @@ import wyil.util.Pair;
  * <code>Type.Reference</code> represents general reference types, such as
  * <code>java.lang.String</code>.
  */
-public interface JvmType extends Comparable<JvmType> {
-	
+public interface JvmType extends Comparable<JvmType> {	
 	/**
 	 * <p>
 	 * This method returns the list of generic variables used in this type. So,

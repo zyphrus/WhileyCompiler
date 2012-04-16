@@ -24,7 +24,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package wyjc.runtime.concurrency;
+package wyjc.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,28 +34,21 @@ import java.util.Stack;
  * A helper class for the actor hierarchy that involves the yielding of thread
  * control and saving of local state.
  * 
+ * @author David Pearce
  * @author Timothy Jones
  */
-public abstract class Yielder {
+public abstract class Continuation {
 	
 	private final Stack<State> state = new Stack<State>();
 	private State current = null;
 	
 	private boolean yielded = false;
-	protected boolean shouldYield = false;
 	
 	/**
 	 * @return Whether the object is currently yielding or has yielded
 	 */
 	public boolean isYielded() {
 		return yielded;
-	}
-	
-	/**
-	 * @return Whether the object should yield when it next decides whether to
-	 */
-	public boolean shouldYield() {
-		return shouldYield;
 	}
 	
 	/**
@@ -211,8 +204,7 @@ public abstract class Yielder {
 		return (Long) current.localStack.pop();
 	}
 	
-	private static final class State {
-		
+	private static final class State {		
 		private final int location;
 		
 		private final Map<Integer, Object> localMap =

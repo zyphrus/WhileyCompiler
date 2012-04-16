@@ -33,12 +33,11 @@ import static wyjvm.lang.JvmTypes.T_VOID;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Stack;
 
 import wyil.util.Pair;
 import wyjvm.attributes.Code;
 import wyjvm.attributes.Code.Handler;
+import wyjvm.attributes.StackMapTable;
 import wyjvm.lang.Bytecode;
 import wyjvm.lang.Bytecode.CheckCast;
 import wyjvm.lang.Bytecode.Goto;
@@ -61,8 +60,7 @@ import wyjvm.lang.JvmType.Clazz;
 import wyjvm.lang.JvmType.Function;
 import wyjvm.lang.JvmType.Int;
 import wyjvm.lang.JvmType.Reference;
-import wyjvm.util.dfa.StackAnalysis;
-import wyjvm.util.dfa.VariableAnalysis;
+import wyjvm.lang.JvmTypes;
 
 /**
  * Bytecode rewriter that adds yield and resumption points on actor
@@ -94,14 +92,9 @@ public class Continuations {
 
 	public void apply(Method method, Code code) {
 		List<Bytecode> bytecodes = code.bytecodes();
-
+		StackMapTable stackMap = code.attribute(StackMapTable.class);
 		int location = 0;
-
-		VariableAnalysis variableAnalysis = new VariableAnalysis(method);
-		StackAnalysis stackAnalysis = new StackAnalysis(method);
-
-		List<Handler> handlers = code.handlers();
-
+		
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
 
@@ -121,15 +114,15 @@ public class Continuations {
 					bytecodes.add(++i, new Invoke(YIELDER, "shouldYield", new Function(
 					    T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
-
-					Map<Integer, JvmType> types = variableAnalysis.typesAt(i + 1);
-					Stack<JvmType> stack = stackAnalysis.typesAt(i + 1);
-
+					
+					// NB: get frame for location after the invoke
+					StackMapTable.Frame frame = stackMap.frameAt(location+1);
+					
 					i =
 					    addResume(bytecodes,
-					        addYield(method, bytecodes, i, location, types, stack),
-					        location, types, stack);
-
+					        addYield(method, bytecodes, i, location, frame),
+					        location, frame);
+					
 					bytecodes.add(++i, new Label("skip" + location));
 
 					location += 1;
@@ -139,8 +132,7 @@ public class Continuations {
 					// yielding, then later resume BEFORE the method call, so it reenters
 					// the yielded method.
 
-					Map<Integer, JvmType> types = variableAnalysis.typesAt(i);
-					Stack<JvmType> stack = stackAnalysis.typesAt(i);
+					StackMapTable.Frame frame = stackMap.frameAt(i);
 
 					List<JvmType> pTypes = invoke.type.parameterTypes();
 					int size = pTypes.size();
@@ -148,14 +140,14 @@ public class Continuations {
 					// The types we have are from before the method was invoked. We need
 					// to remove the types of the arguments from the stack.
 					for (int j = 0; j < size; ++j) {
-						stack.pop();
+						// Uhh...
 					}
 
 					// If the code flow is arriving here for the first time, it needs to
 					// skip the resume. Future resumptions will jump to the start of the
 					// function to right after this goto with the following resume.
 					bytecodes.add(i++, new Goto("invoke" + location));
-					i = addResume(bytecodes, i - 1, location, types, stack) + 1;
+					i = addResume(bytecodes, i - 1, location, frame) + 1;
 
 					// Because we're resuming, the arguments don't actually matter. The
 					// analysis on the other end of the method will put the local
@@ -174,7 +166,7 @@ public class Continuations {
 					    T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
-					i = addYield(method, bytecodes, i, location, types, stack);
+					i = addYield(method, bytecodes, i, location, frame);
 
 					bytecodes.add(++i, new Label("skip" + location));
 
@@ -186,7 +178,7 @@ public class Continuations {
 			if (i != original) {
 				int diff = i - original;
 
-				for (Handler handler : handlers) {
+				for (Handler handler : code.handlers()) {
 					if (handler.start <= original && handler.end > original) {
 						handler.end += diff;
 					} else if (handler.start > original) {
@@ -216,7 +208,7 @@ public class Continuations {
 			bytecodes.add(++i, new Switch("begin", cases));
 			bytecodes.add(++i, new Label("begin"));
 
-			for (Handler handler : handlers) {
+			for (Handler handler : code.handlers()) {
 				handler.start += i;
 				handler.end += i;
 			}
@@ -235,29 +227,35 @@ public class Continuations {
 	}
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-	    int location, Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    int location, StackMapTable.Frame frame) {
 		i = addStrand(bytecodes, i);
 
 		bytecodes.add(++i, new LoadConst(location));
 		bytecodes.add(++i, new Invoke(YIELDER, "yield",
 		    new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
+		
+		// TODO: incorporate liveness information here so that we don't store
+		// variables which are no longer live. This would help to cut down
+		// potentially expensive boxing operations. It also simply reduces the
+		// number of bytecode instructions required to implement the yield.
+		for (int var = 0; var != frame.numLocals; var++) {
+			JvmType type = frame.types[var];
+			if(!type.equals(JvmTypes.T_VOID)) { 
+				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new LoadConst(var));
+				bytecodes.add(++i, new Load(var, type));
 
-		for (int var : types.keySet()) {
-			JvmType type = types.get(var);
-			i = addStrand(bytecodes, i);
-			bytecodes.add(++i, new LoadConst(var));
-			bytecodes.add(++i, new Load(var, type));
+				if (type instanceof Reference) {
+					type = JAVA_LANG_OBJECT;
+				}
 
-			if (type instanceof Reference) {
-				type = JAVA_LANG_OBJECT;
+				bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID,
+						T_INT, type), Bytecode.VIRTUAL));
 			}
-
-			bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID, T_INT,
-			    type), Bytecode.VIRTUAL));
 		}
-
-		for (int j = stack.size() - 1; j >= 0; --j) {
-			JvmType type = stack.get(j);
+		
+		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+			JvmType type = frame.types[j];
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Swap());
 
@@ -265,8 +263,8 @@ public class Continuations {
 				type = JAVA_LANG_OBJECT;
 			}
 
-			bytecodes.add(++i, new Invoke(YIELDER, "push",
-			    new Function(T_VOID, type), Bytecode.VIRTUAL));
+			bytecodes.add(++i, new Invoke(YIELDER, "push", new Function(T_VOID,
+					type), Bytecode.VIRTUAL));
 		}
 
 		JvmType returnType = method.type().returnType();
@@ -281,10 +279,11 @@ public class Continuations {
 	}
 
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-	    Map<Integer, JvmType> types, Stack<JvmType> stack) {
+	    StackMapTable.Frame frame) {
 		bytecodes.add(++i, new Label("resume" + location));
 
-		for (JvmType type : stack) {
+		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+			JvmType type = frame.types[j];
 			JvmType methodType = type;
 			i = addStrand(bytecodes, i);
 
@@ -304,28 +303,31 @@ public class Continuations {
 				bytecodes.add(++i, new CheckCast(type));
 			}
 		}
+		
+		for (int var = 0; var != frame.numLocals; var++) {
+			JvmType type = frame.types[var];
+			if(!type.equals(JvmTypes.T_VOID)) {
+				JvmType methodType = type;
+				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new LoadConst(var));
 
-		for (int var : types.keySet()) {
-			JvmType type = types.get(var), methodType = type;
-			i = addStrand(bytecodes, i);
-			bytecodes.add(++i, new LoadConst(var));
+				String name;
+				if (type instanceof Reference) {
+					name = "getObject";
+					methodType = JAVA_LANG_OBJECT;
+				} else {
+					// This is a bit of a hack. Method names in Yielder MUST match the
+					// class names in JvmType.
+					name = "get" + type.getClass().getSimpleName();
+				}
 
-			String name;
-			if (type instanceof Reference) {
-				name = "getObject";
-				methodType = JAVA_LANG_OBJECT;
-			} else {
-				// This is a bit of a hack. Method names in Yielder MUST match the
-				// class names in JvmType.
-				name = "get" + type.getClass().getSimpleName();
+				bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
+						T_INT), Bytecode.VIRTUAL));
+				if (type instanceof Reference) {
+					bytecodes.add(++i, new CheckCast(type));
+				}
+				bytecodes.add(++i, new Store(var, type));
 			}
-
-			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
-			    T_INT), Bytecode.VIRTUAL));
-			if (type instanceof Reference) {
-				bytecodes.add(++i, new CheckCast(type));
-			}
-			bytecodes.add(++i, new Store(var, type));
 		}
 
 		i = addStrand(bytecodes, i);

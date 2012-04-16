@@ -234,31 +234,14 @@ public class ClassFileBuilder {
 				Bytecode.SPECIAL));
 		
 		// Create the starting strand.
-		codes.add(new Bytecode.New(WHILEYSTRAND));
-		
-		// Create a copy for the call to sendSync.
-		codes.add(new Bytecode.Dup(WHILEYSTRAND));
+		codes.add(new Bytecode.New(WHILEYOBJECT));
+		codes.add(new Bytecode.Dup(WHILEYOBJECT));
 		
 		// Call the strand's constructor.
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
-		codes.add(new Bytecode.Invoke(WHILEYSTRAND, "<init>",
-				new JvmType.Function(T_VOID, WHILEYSCHEDULER), Bytecode.SPECIAL));
-		
-		// Get the ::main method out.
-		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
-		JvmType.Function ftype = new JvmType.Function(JAVA_LANG_REFLECT_METHOD,
-				JAVA_LANG_STRING, JAVA_LANG_STRING);
-		
-		codes.add(new Bytecode.LoadConst(owner.toString()));
-		codes.add(new Bytecode.LoadConst(nameMangle("main", wyft)));
-		codes.add(new Bytecode.Invoke(WHILEYUTIL, "functionRef", ftype,
-				Bytecode.STATIC));
-		
-		// Create the ::main arguments list.
-		codes.add(new Bytecode.LoadConst(1));
-		codes.add(new Bytecode.New(JAVA_LANG_OBJECT_ARRAY));
-		codes.add(new Bytecode.Dup(JAVA_LANG_OBJECT_ARRAY));
-		codes.add(new Bytecode.LoadConst(0));
+		codes.add(new Bytecode.LoadConst(null));
+		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
+				new JvmType.Function(T_VOID, WHILEYSCHEDULER, JAVA_LANG_OBJECT), Bytecode.SPECIAL));
 		
 		// Create the console record.
 		codes.add(new Bytecode.Load(0, strArr));
@@ -266,14 +249,16 @@ public class ClassFileBuilder {
 		codes.add(new Bytecode.Invoke(WHILEYUTIL, "newSystemConsole",
 				new JvmType.Function(WHILEYRECORD, new JvmType.Array(JAVA_LANG_STRING),
 						WHILEYSCHEDULER), Bytecode.STATIC));
+
+		// Get the ::main method out.
+		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
+		codes.add(new Bytecode.Invoke(owner, nameMangle("main", wyft),
+				convertFunType(wyft), Bytecode.STATIC));
 		
-		// Add the console to the arguments list.
-		codes.add(new Bytecode.ArrayStore(JAVA_LANG_OBJECT_ARRAY));
-		
-		// Call the send method (this does not block).
-		codes.add(new Bytecode.Invoke(WHILEYSTRAND, "sendAsync",
-				new JvmType.Function(T_VOID, JAVA_LANG_REFLECT_METHOD,
-						JAVA_LANG_OBJECT_ARRAY), Bytecode.VIRTUAL));
+		// shutdown the scheduler
+		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
+		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "shutdown",
+				new JvmType.Function(T_VOID), Bytecode.VIRTUAL));
 		
 		// And return.
 		codes.add(new Bytecode.Return(null));
@@ -657,14 +642,14 @@ public class ClassFileBuilder {
 		
 		if(Type.isSubtype(Type.Reference(Type.T_ANY), type)) {			
 			Type.Reference pt = (Type.Reference) type;
-			bytecodes.add(new Bytecode.Dup(WHILEYPROCESS));
+			bytecodes.add(new Bytecode.Dup(WHILEYOBJECT));
 			JvmType.Function ftype = new JvmType.Function(JAVA_LANG_OBJECT);		
-			bytecodes.add(new Bytecode.Invoke(WHILEYPROCESS, "getState", ftype,
+			bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "getState", ftype,
 					Bytecode.VIRTUAL));							
 			addReadConversion(pt.element(),bytecodes);
 			multiStoreHelper(pt.element(),level-1,fields,indexSlot,val_t,freeSlot,bytecodes);						
-			ftype = new JvmType.Function(WHILEYPROCESS,JAVA_LANG_OBJECT);		
-			bytecodes.add(new Bytecode.Invoke(WHILEYPROCESS, "setState", ftype,
+			ftype = new JvmType.Function(WHILEYOBJECT,JAVA_LANG_OBJECT);		
+			bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "setState", ftype,
 					Bytecode.VIRTUAL));
 			
 		} else if(type instanceof Type.EffectiveDictionary) {
@@ -1406,19 +1391,19 @@ public class ClassFileBuilder {
 	
 	public void translate(Code.New c, int freeSlot,
 			ArrayList<Bytecode> bytecodes) {							
-		bytecodes.add(new Bytecode.New(WHILEYPROCESS));			
+		bytecodes.add(new Bytecode.New(WHILEYOBJECT));			
 		bytecodes.add(new Bytecode.DupX1());
 		bytecodes.add(new Bytecode.Swap());
 		// TODO: problem here ... need to swap or something		
 		JvmType.Function ftype = new JvmType.Function(T_VOID, JAVA_LANG_OBJECT);
-		bytecodes.add(new Bytecode.Invoke(WHILEYPROCESS, "<init>", ftype,
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>", ftype,
 				Bytecode.SPECIAL));
 	}
 	
 	public void translate(Code.Dereference c, int freeSlot,
 			ArrayList<Bytecode> bytecodes) {				
 		JvmType.Function ftype = new JvmType.Function(JAVA_LANG_OBJECT);		
-		bytecodes.add(new Bytecode.Invoke(WHILEYPROCESS, "getState", ftype,
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "getState", ftype,
 				Bytecode.VIRTUAL));
 		// finally, we need to cast the object we got back appropriately.		
 		Type.Reference pt = (Type.Reference) c.type;						
@@ -1556,6 +1541,8 @@ public class ClassFileBuilder {
 		JvmType.Clazz owner = new JvmType.Clazz(mid.parent().toString()
 				.replace('/', '.'), mid.last());
 		JvmType.Function type = convertFunType(c.type);
+		
+		// make the call
 		bytecodes
 				.add(new Bytecode.Invoke(owner, mangled, type, Bytecode.STATIC));
 
@@ -1634,6 +1621,7 @@ public class ClassFileBuilder {
 		}
 		
 		// finally, setup the stack for the send
+		bytecodes.add(new Bytecode.Load(0,WHILEYOBJECT));
 		JvmType.Function ftype = new JvmType.Function(JAVA_LANG_REFLECT_METHOD,
 				JAVA_LANG_STRING, JAVA_LANG_STRING);
 		
@@ -1644,15 +1632,13 @@ public class ClassFileBuilder {
 				Bytecode.STATIC));
 		bytecodes.add(new Bytecode.Load(freeSlot, arrT));
 		
-		ftype = new JvmType.Function(c.synchronous ? WHILEYFUTURE : T_VOID,
-				JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
+		ftype = new JvmType.Function(c.synchronous ? JAVA_LANG_OBJECT : T_VOID,
+				WHILEYOBJECT, JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
 		
-		bytecodes.add(new Bytecode.Invoke(WHILEYMESSAGER, c.synchronous ?
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, c.synchronous ?
 				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));
 		
 		if (c.synchronous) {
-			bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "join",
-					new JvmType.Function(JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
 			if (c.retval) {
 				addReadConversion(c.type.ret(), bytecodes);
 			} else {
@@ -1691,19 +1677,17 @@ public class ClassFileBuilder {
 		bytecodes.add(new Bytecode.Swap());
 		bytecodes.add(new Bytecode.Load(freeSlot, arrT));
 		
-		JvmType.Function ftype = new JvmType.Function(c.synchronous ? WHILEYFUTURE
+		JvmType.Function ftype = new JvmType.Function(c.synchronous ? JAVA_LANG_OBJECT
 				: T_VOID, JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
 		
-		bytecodes.add(new Bytecode.Invoke(WHILEYMESSAGER, c.synchronous ?
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, c.synchronous ?
 				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));
 		
 		if (c.synchronous) {
-			if (c.retval) {
-				bytecodes.add(new Bytecode.Invoke(WHILEYFUTURE, "getResult",
-						new JvmType.Function(JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
+			if (c.retval) {				
 				addReadConversion(c.type.ret(), bytecodes);
 			} else {
-				bytecodes.add(new Bytecode.Pop(WHILEYFUTURE));
+				bytecodes.add(new Bytecode.Pop(JAVA_LANG_OBJECT));
 			}
 		}
 	}
@@ -2723,14 +2707,8 @@ public class ClassFileBuilder {
 	public final static JvmType.Clazz WHILEYTYPE = new JvmType.Clazz("wyjc.runtime","Type");	
 	public final static JvmType.Clazz WHILEYMAP = new JvmType.Clazz("wyjc.runtime","Dictionary");
 	public final static JvmType.Clazz WHILEYRECORD = new JvmType.Clazz("wyjc.runtime","Record");	
-	public final static JvmType.Clazz WHILEYPROCESS = new JvmType.Clazz(
-			"wyjc.runtime", "Actor");
-	public final static JvmType.Clazz WHILEYSTRAND = new JvmType.Clazz(
-			"wyjc.runtime.concurrency", "Strand");	
-	public final static JvmType.Clazz WHILEYMESSAGER = new JvmType.Clazz(
-			"wyjc.runtime.concurrency", "Messager");
-	public final static JvmType.Clazz WHILEYFUTURE = new JvmType.Clazz(
-			"wyjc.runtime.concurrency", "Messager$MessageFuture");
+	public final static JvmType.Clazz WHILEYOBJECT = new JvmType.Clazz(
+			"wyjc.runtime", "Actor");	
 	public final static JvmType.Clazz WHILEYSCHEDULER = new JvmType.Clazz(
 			"wyjc.runtime.concurrency", "Scheduler");
 	public final static JvmType.Clazz WHILEYEXCEPTION = new JvmType.Clazz("wyjc.runtime","Exception");	
@@ -2751,9 +2729,9 @@ public class ClassFileBuilder {
 		ArrayList<JvmType> paramTypes = new ArrayList<JvmType>();
 		if(ft instanceof Type.Message) {
 			Type.Message mt = (Type.Message)ft; 
-			if(mt.receiver() != null) {
-				paramTypes.add(convertType(mt.receiver()));
-			}
+			paramTypes.add(convertType(mt.receiver()));
+		} else if(ft instanceof Type.Method) {
+			paramTypes.add(WHILEYOBJECT);
 		}
 		for(Type pt : ft.params()) {
 			paramTypes.add(convertType(pt));
@@ -2794,7 +2772,7 @@ public class ClassFileBuilder {
 		} else if(t instanceof Type.EffectiveTuple) {
 			return WHILEYTUPLE;
 		} else if(t instanceof Type.Reference) {
-			return WHILEYPROCESS;
+			return WHILEYOBJECT;
 		} else if(t instanceof Type.Negation) {
 			// can we do any better?
 			return JAVA_LANG_OBJECT;

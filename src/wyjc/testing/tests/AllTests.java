@@ -29,6 +29,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
-@Suite.SuiteClasses( { RuntimeValidTests.class, StaticInvalidTests.class, ExtendedValidTests.class, ExtendedRuntimeInvalidTests.class })
+@Suite.SuiteClasses({ RuntimeValidTests.class, StaticInvalidTests.class,
+		ExtendedValidTests.class, ExtendedRuntimeInvalidTests.class, ActorTests.class })
 public class AllTests {
 }

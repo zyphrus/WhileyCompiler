@@ -296,14 +296,14 @@ public abstract class Bytecode {
 		public final Object constant;
 		
 		public LoadConst(Object constant) {				
-			if(constant instanceof Boolean) {
-				Boolean b = (Boolean) constant;				
-				constant = b ? 1 : 0;				
-			} else if(constant instanceof Character) {
-				constant = (int)((Character) constant);
-			} else if(constant instanceof Byte || constant instanceof Short) {
-				constant = ((Number)constant).intValue();
-			}
+//			if(constant instanceof Boolean) {
+//				Boolean b = (Boolean) constant;				
+//				constant = b ? 1 : 0;				
+//			} else if(constant instanceof Character) {
+//				constant = (int)((Character) constant);
+//			} else if(constant instanceof Byte || constant instanceof Short) {
+//				constant = ((Number)constant).intValue();
+//			}
 			this.constant = constant; 
 		}				
 		
@@ -315,8 +315,8 @@ public abstract class Bytecode {
 		}
 		
 		public void addPoolItems(Set<Constant.Info> constantPool) {
-			if (constant instanceof Integer) {
-				int v = ((Number) constant).intValue();
+			if (isIntValue()) {
+				int v = intValue();
 				if (!(v >= -1 && v <= 5) && !(v >= -128 && v <= 127)
 						&& !(v >= -32768 && v <= 32767)) { 					
 					Constant.addPoolItem(new Constant.Integer(v),constantPool);										
@@ -350,8 +350,8 @@ public abstract class Bytecode {
 				Map<Constant.Info,Integer> constantPool) {
 			ByteArrayOutputStream out = new ByteArrayOutputStream();						
 			
-			if (constant instanceof Integer) {
-				int v = (Integer) constant;
+			if (isIntValue()) {
+				int v = intValue();
 				if (v >= -1 && v <= 5) {
 					write_u1(out, ICONST_0 + v);
 				} else if (v >= -128 && v <= 127) {
@@ -430,8 +430,8 @@ public abstract class Bytecode {
 		}
 		
 		public String toString() {
-			if (constant instanceof Integer) {
-				int v = (Integer) constant;
+			if (isIntValue()) {
+				int v = intValue();
 				if (v >= -1 && v <= 5) {
 					return "iconst_" + v;
 				} else if (v >= -128 && v <= 127) {
@@ -495,6 +495,39 @@ public abstract class Bytecode {
 				return constant.hashCode();
 			}
 		}
+
+		/**
+		 * Check whether this constant is represented as an integer on the JVM.
+		 * For example, a Boolean constant is actually represented as a int on
+		 * the JVM.
+		 * 
+		 * @return
+		 */
+		public boolean isIntValue() {
+			return constant instanceof Boolean || constant instanceof Byte
+					|| constant instanceof Short
+					|| constant instanceof Character
+					|| constant instanceof Integer;
+		}
+
+		/**
+		 * Get the integer value of this constant. Assumes isIntValue holds.
+		 * 
+		 * @return
+		 */
+		public int intValue() {
+			if (constant instanceof Boolean) {
+				Boolean b = (Boolean) constant;
+				return b ? 1 : 0;
+			} else if (constant instanceof Character) {
+				return (int) ((Character) constant);
+			} else if (constant instanceof Byte || constant instanceof Short) {
+				return ((Number) constant).intValue();
+			} else {
+				return (Integer) constant;
+			}
+		}
+		
 	}
 	
 	/**
