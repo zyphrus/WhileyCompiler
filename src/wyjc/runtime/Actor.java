@@ -39,8 +39,11 @@ public final class Actor extends Continuation implements Runnable {
 	
 	private final Scheduler scheduler;
 	
-	private final Message[] mailbox;
-	private int count;
+	private Message currentMessage = null;
+	private Message finalMessage = null;
+	
+	private int mailboxSize = 0;
+	private final int mailboxLimit = 10;
 	
 	private Object state;
 	
@@ -60,9 +63,6 @@ public final class Actor extends Continuation implements Runnable {
 	 * inconsistent state. Obviously, all messagers are ready to begin with.
 	 */
 	private boolean isReadyToResume = true;
-	
-	// Used for sleeping an actor.
-	private long wakeAt = 0;
 	
 	/**
 	 * Temporary constructor to get File$native compiling. Remove once native
@@ -89,8 +89,6 @@ public final class Actor extends Continuation implements Runnable {
 	 */
 	public Actor(Scheduler scheduler, Object state) {
 		this.scheduler = scheduler;
-		this.mailbox = new Message[10];
-		this.count = 0;
 		this.state = state;
 	}
 	
@@ -123,13 +121,22 @@ public final class Actor extends Continuation implements Runnable {
 	 * @param method The method to call when running the message
 	 * @param arguments The arguments to pass to the method
 	 */
-	public void asyncSend(Method method, Object[] arguments) {
-		arguments[0] = this;
-		Message msg = new Message(method, arguments);
-		
-		synchronized (mailbox) {
-			// FIXME: when the mailbox gets full we need to yield
-			mailbox[count++] = msg;
+	public void asyncSend(Actor sender, Method method, Object[] arguments)
+	    throws Throwable {
+		if (sender != null && sender.isYielded()) {
+			syncSend(sender, method, arguments);
+		} else {
+			boolean full;
+			synchronized (finalMessage == null ? this : finalMessage) {
+				full = mailboxSize == mailboxLimit;
+			}
+			
+			if (full) {
+				syncSend(sender, method, arguments);
+			} else {
+				arguments[0] = this;
+				addMessage(new Message(method, arguments));
+			}
 		}
 	}
 	
@@ -143,77 +150,69 @@ public final class Actor extends Continuation implements Runnable {
 	 */
 	public Object syncSend(Actor sender, Method method, Object[] arguments)
 	    throws Throwable {
-		if (sender.isYielded()) {
+		if (sender != null && sender.isYielded()) {
 			// Indicates we are resuming from the yield below.
-			SyncMessage msg = (SyncMessage) mailbox[0];
+			SyncMessage message = (SyncMessage) currentMessage;
 			
-			if (msg.cause != null) {
-				throw msg.cause;
+			if (message.cause != null) {
+				throw message.cause;
 			}
 			
-			return msg.result;
+			return message.result;
 		} else {
 			arguments[0] = this;
-			SyncMessage msg = new SyncMessage(sender, method, arguments);
+			SyncMessage message = new SyncMessage(sender, method, arguments);
+			addMessage(message);
 			
-			synchronized (mailbox) {
-				// FIXME: when the mailbox gets full we need to do something?
-				mailbox[count++] = msg;
+			// Block the sender. If the sender is null, then block the whole thread.
+			// This allows this method to be called from ordinary Java and still have
+			// it work as expected.
+			if (sender == null) {
+				synchronized (message) {
+					message.wait();
+				}
+				
+				if (message.cause != null) {
+					throw message.cause;
+				}
+				
+				return message.result;
+			} else {
+				sender.yield(0);
+				return null;
+			}
+		}
+	}
+	
+	private void addMessage(Message message) {
+		synchronized (finalMessage == null ? this : finalMessage) {
+			if (currentMessage == null) {
+				currentMessage = message;
 			}
 			
-			// Yield the sender actor here.
-			sender.yield();
+			if (finalMessage != null) {
+				finalMessage.next = message;
+			}
 			
-			return null;
+			mailboxSize += 1;
+			finalMessage = message;
 		}
 	}
 	
 	@Override
 	public void run() {
-		// Sleep logic. If the actor wakes up before the given time, then it just
-		// goes back to sleep.
-		if (wakeAt != 0) {
-			if (System.currentTimeMillis() < wakeAt) {
-				isReadyToResume = true;
-				schedule();
-				return;
-			} else {
-				wakeAt = 0;
-			}
-		}
-		
-		while (true) {
-			Message msg;
-			synchronized (mailbox) {
-				msg = mailbox[0];
-			}
+		while (currentMessage != null) {
+			Message message = currentMessage;
 			
 			try {
-				Object result = msg.method.invoke(null, msg.arguments);
+				Object result = message.method.invoke(null, message.arguments);
 				
-				if (!this.isYielded()) {
-					isReadyToResume = true;
+				if (message instanceof SyncMessage && !this.isYielded()) {
+					SyncMessage syncMessage = (SyncMessage) message;
 					
-					if (msg instanceof SyncMessage) {
-						SyncMessage smsg = (SyncMessage) msg;
-						
-						// Record the result and alert the sender that we've finished.
-						smsg.result = result;
-						smsg.sender.schedule();
-					}
-				} else {
-					// This needs to be synchronized in case another actor is trying to
-					// schedule this one during the end. In this case, it may see
-					// isReadyToResume as false, but then fail to set
-					// shouldResumeImmediately to true before the if statement below,
-					// which would result in the actor never resuming.
-					synchronized (this) {
-						isReadyToResume = true;
-					}
-					
-					if (shouldResumeImmediately) {
-						schedule();
-					}
+					// Record the result and alert the sender that we've finished.
+					syncMessage.result = result;
+					syncMessage.sender.schedule();
 				}
 			} catch (IllegalArgumentException iax) {
 				// Not possible - caught by the language compiler.
@@ -224,22 +223,46 @@ public final class Actor extends Continuation implements Runnable {
 			} catch (InvocationTargetException itx) {
 				Throwable cause = itx.getCause();
 				
-				// Asynchronous messages aren't caught, so errors bottom out here.
-				if (msg instanceof SyncMessage) {
-					((SyncMessage) msg).cause = cause;
+				// Respond to message failure.
+				if (message instanceof SyncMessage) {
+					SyncMessage syncMessage = (SyncMessage) message;
+					
+					// Record the result and alert the sender that we've finished.
+					syncMessage.cause = cause;
+					syncMessage.sender.schedule();
 				} else {
-					String message = cause.getMessage();
+					String reason = cause.getMessage();
 					
 					System.err.print(this + " failed in a message to "
-					    + msg.method.getName() + " because ");
+					    + message.method.getName() + " because ");
 					
 					if (cause instanceof wyjc.runtime.Exception) {
 						System.err.println(cause);
-					} else if (message == null) {
+					} else if (reason == null) {
 						System.err.println("of a " + cause);
 					} else {
-						System.err.println(message);
+						System.err.println(reason);
 					}
+				}
+			}
+			
+			if (!this.isYielded()) {
+				synchronized (message) {
+					currentMessage = message.next;
+					message.notifyAll();
+				}
+			} else {
+				// This needs to be synchronized in case another actor is trying to
+				// schedule this one during the end. In this case, it may see
+				// isReadyToResume as false, but then fail to set
+				// shouldResumeImmediately to true before the if statement below,
+				// which would result in the actor never resuming.
+				synchronized (this) {
+					isReadyToResume = true;
+				}
+				
+				if (shouldResumeImmediately) {
+					schedule();
 				}
 			}
 		}
@@ -250,52 +273,20 @@ public final class Actor extends Continuation implements Runnable {
 		// synchronization prevents this code from running alongside the block in
 		// the run method: see the comment there.
 		synchronized (this) {
+			
+			// If a schedule is requested while the actor is unwinding its call stack
+			// then this will cause the schedule to happen once the unwind is done.
 			if (!isReadyToResume) {
 				shouldResumeImmediately = true;
 				return;
 			}
+			
 		}
 		
 		// Schedule is successful, so restore these to default values.
 		isReadyToResume = shouldResumeImmediately = false;
 		
 		scheduler.schedule(this);
-	}
-	
-	/**
-	 * Causes the actor to yield control of the thread and schedule itself back
-	 * into the thread pool.
-	 * 
-	 * This will not work outside of the scheduler.
-	 */
-	public void yield() {
-		if (this.isYielded()) {
-			unyield();
-		} else {
-			shouldResumeImmediately = true;
-			yield(0);
-		}
-	}
-	
-	/**
-	 * Blocks the actor for at least the given amount of time.
-	 * 
-	 * This will not work outside of the scheduler.
-	 * 
-	 * @param millis The number of milliseconds to sleep for
-	 */
-	public void sleep(long millis) {
-		if (this.isYielded()) {
-			unyield();
-		} else {
-			// Don't bother yielding if there isn't an amount of time to sleep for,
-			if (millis <= 0) {
-				return;
-			}
-			
-			wakeAt = System.currentTimeMillis() + millis;
-			yield();
-		}
 	}
 	
 	@Override
@@ -308,6 +299,8 @@ public final class Actor extends Continuation implements Runnable {
 		public final Method method;
 		public final Object[] arguments;
 		
+		public Message next = null;
+		
 		public Message(Method method, Object[] arguments) {
 			this.method = method;
 			this.arguments = arguments;
@@ -318,8 +311,8 @@ public final class Actor extends Continuation implements Runnable {
 	private static final class SyncMessage extends Message {
 		
 		public final Actor sender;
-		public Object result;
-		public Throwable cause;
+		public Object result = null;
+		public Throwable cause = null;
 		
 		public SyncMessage(Actor sender, Method method, Object[] arguments) {
 			super(method, arguments);

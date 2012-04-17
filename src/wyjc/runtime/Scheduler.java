@@ -63,12 +63,18 @@ public final class Scheduler {
 	}
 	
 	/**
-	 * @return The number of threads in the thread pool, or 0 if dynamic.
+	 * @return The number of threads in the thread pool, or 0 if dynamic
 	 */
 	public int getThreadCount() {
 		return threadCount;
 	}
 	
+	/**
+	 * Shuts the current thread pool down and starts a new one with the given
+	 * number of threads. Performs no operation if the thread count is the same.
+	 * 
+	 * @param threadCount The number of threads to have in the thread pool
+	 */
 	public void setThreadCount(int threadCount) {
 		if (this.threadCount != threadCount) {
 			pool.shutdown();

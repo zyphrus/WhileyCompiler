@@ -33,12 +33,32 @@ import wyjc.runtime.Actor;
 public class Actor$native {
 	
 	public static void yield(Actor actor) {
-		actor.yield();
+		if (actor.isYielded()) {
+			actor.unyield();
+		} else {
+			actor.yield(0);
+			actor.getScheduler().schedule(actor);
+		}
 	}
 	
 	public static void sleep(Actor actor, BigInteger millis)
 	    throws InterruptedException {
-		actor.sleep(millis.longValue());
+		if (actor.isYielded()) {
+			long time = actor.getLong(0);
+			if (System.currentTimeMillis() >= time) {
+				actor.unyield();
+			}
+		} else {
+			long time = millis.longValue();
+			
+			if (time <= 0) {
+				return;
+			}
+			
+			actor.yield(0);
+			actor.getScheduler().schedule(actor);
+			actor.set(0, System.currentTimeMillis() + time);
+		}
 	}
 	
 	public static BigInteger getThreadCountUnfiltered(Actor actor) {
