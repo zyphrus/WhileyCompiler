@@ -123,11 +123,11 @@ public final class Actor extends Continuation implements Runnable {
 	 */
 	public void asyncSend(Actor sender, Method method, Object[] arguments)
 	    throws Throwable {
-		if (sender != null && sender.isYielded()) {
+		if (sender.isYielded()) {
 			syncSend(sender, method, arguments);
 		} else {
 			boolean full;
-			synchronized (finalMessage == null ? this : finalMessage) {
+			synchronized (this) {
 				full = mailboxSize == mailboxLimit;
 			}
 			
@@ -150,7 +150,7 @@ public final class Actor extends Continuation implements Runnable {
 	 */
 	public Object syncSend(Actor sender, Method method, Object[] arguments)
 	    throws Throwable {
-		if (sender != null && sender.isYielded()) {
+		if (sender.isYielded()) {
 			// Indicates we are resuming from the yield below.
 			SyncMessage message = (SyncMessage) currentMessage;
 			
@@ -164,28 +164,13 @@ public final class Actor extends Continuation implements Runnable {
 			SyncMessage message = new SyncMessage(sender, method, arguments);
 			addMessage(message);
 			
-			// Block the sender. If the sender is null, then block the whole thread.
-			// This allows this method to be called from ordinary Java and still have
-			// it work as expected.
-			if (sender == null) {
-				synchronized (message) {
-					message.wait();
-				}
-				
-				if (message.cause != null) {
-					throw message.cause;
-				}
-				
-				return message.result;
-			} else {
-				sender.yield(0);
-				return null;
-			}
+			sender.yield(0);
+			return null;
 		}
 	}
 	
 	private void addMessage(Message message) {
-		synchronized (finalMessage == null ? this : finalMessage) {
+		synchronized (this) {
 			if (currentMessage == null) {
 				currentMessage = message;
 			}
@@ -247,9 +232,8 @@ public final class Actor extends Continuation implements Runnable {
 			}
 			
 			if (!this.isYielded()) {
-				synchronized (message) {
+				synchronized (this) {
 					currentMessage = message.next;
-					message.notifyAll();
 				}
 			} else {
 				// This needs to be synchronized in case another actor is trying to
