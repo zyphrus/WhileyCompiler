@@ -1636,7 +1636,7 @@ public class ClassFileBuilder {
 				WHILEYOBJECT, JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
 		
 		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, c.synchronous ?
-				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));
+				"syncSend" : "asyncSend", ftype, Bytecode.VIRTUAL));
 		
 		if (c.synchronous) {
 			if (c.retval) {
@@ -2710,7 +2710,7 @@ public class ClassFileBuilder {
 	public final static JvmType.Clazz WHILEYOBJECT = new JvmType.Clazz(
 			"wyjc.runtime", "Actor");	
 	public final static JvmType.Clazz WHILEYSCHEDULER = new JvmType.Clazz(
-			"wyjc.runtime.concurrency", "Scheduler");
+			"wyjc.runtime", "Scheduler");
 	public final static JvmType.Clazz WHILEYEXCEPTION = new JvmType.Clazz("wyjc.runtime","Exception");	
 	public final static JvmType.Clazz BIG_INTEGER = new JvmType.Clazz("java.math","BigInteger");
 	public final static JvmType.Clazz BIG_RATIONAL = new JvmType.Clazz("wyjc.runtime","BigRational");
