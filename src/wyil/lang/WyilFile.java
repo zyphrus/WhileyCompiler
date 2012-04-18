@@ -86,7 +86,7 @@ public final class WyilFile {
 			ta.apply(file);
 			
 			// add in actor continuations
-			new Continuations().apply(file);		
+			new ContinuationRewriting().apply(file);		
 			
 			// reapply the type analysis, since bytcodes changed by continuations
 			//ta.apply(file);

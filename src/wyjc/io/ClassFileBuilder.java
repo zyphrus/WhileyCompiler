@@ -1645,7 +1645,7 @@ public class ClassFileBuilder {
 				WHILEYOBJECT, JAVA_LANG_REFLECT_METHOD, JAVA_LANG_OBJECT_ARRAY);
 		
 		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, c.synchronous ?
-				"syncSend" : "asyncSend", ftype, Bytecode.VIRTUAL));
+				"sendSync" : "sendAsync", ftype, Bytecode.VIRTUAL));
 		
 		if (c.synchronous) {
 			if (c.retval) {

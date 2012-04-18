@@ -132,6 +132,9 @@ public final class Actor extends Continuation implements Runnable {
 				// control of the thread.
 				sender.yield(0);
 				sender.set(0, message);
+				
+				// FIXME Make this work independent of the method implementation.
+				sender.set(1, this);
 
 				// FIXME Should the sender just keep trying, or should this actor save
 				// who has tried before and inform them when it's safe to try again?
@@ -171,7 +174,10 @@ public final class Actor extends Continuation implements Runnable {
 
 			sender.yield(0);
 			sender.set(0, added);
-			sender.set(1, message);
+			sender.set(2, message);
+			
+			// FIXME Make this work independent of the method implementation.
+			sender.set(1, this);
 
 			if (!added) {
 				// FIXME As above.
@@ -191,10 +197,13 @@ public final class Actor extends Continuation implements Runnable {
 
 			return message.result;
 		} else {
-			SyncMessage message = (SyncMessage) sender.getObject(1);
+			SyncMessage message = (SyncMessage) sender.getObject(2);
 			boolean added = addMessage(message);
 
 			sender.set(0, added);
+			
+			// FIXME Make this work independent of the method implementation.
+			sender.set(1, this);
 
 			if (!added) {
 				// FIXME As above.

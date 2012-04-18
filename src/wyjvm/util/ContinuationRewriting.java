@@ -46,6 +46,7 @@ import wyjvm.lang.Bytecode.Invoke;
 import wyjvm.lang.Bytecode.Label;
 import wyjvm.lang.Bytecode.Load;
 import wyjvm.lang.Bytecode.LoadConst;
+import wyjvm.lang.Bytecode.Pop;
 import wyjvm.lang.Bytecode.Return;
 import wyjvm.lang.Bytecode.Store;
 import wyjvm.lang.Bytecode.Swap;
@@ -67,8 +68,7 @@ import wyjvm.lang.JvmTypes;
  */
 public class ContinuationRewriting {
 
-	private static final Clazz STRAND = new Clazz("wyjc.runtime.concurrency",
-			"Strand"), YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
+	private static final Clazz ACTOR = new Clazz("wyjc.runtime", "Actor");
 
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
@@ -105,16 +105,10 @@ public class ContinuationRewriting {
 					// yielding, then later resume before the method call so it reenters
 					// the yielded method.
 
-					StackMapTable.Frame frame = stackMap.frameAt(i);
+					StackMapTable.Frame frame = stackMap.frameAt(i + 1);
 
 					List<JvmType> pTypes = invoke.type.parameterTypes();
 					int size = pTypes.size();
-
-					// The types we have are from before the method was invoked. We need
-					// to remove the types of the arguments from the stack.
-					for (int j = 0; j < size; ++j) {
-						// Uhh...
-					}
 
 					// If the code flow is arriving here for the first time, it needs to
 					// skip the resume. Future resumptions will jump to the start of the
@@ -122,10 +116,22 @@ public class ContinuationRewriting {
 					bytecodes.add(i++, new Goto("invoke" + location));
 					i = addResume(bytecodes, i - 1, location, frame) + 1;
 
+					// FIXME This is hacked inside of the Actor class to work.
+					// There should be a general solution to this problem.
+					if (invoke.mode == Bytecode.VIRTUAL) {
+						bytecodes.add(i++, new Load(0, ACTOR));
+						bytecodes.add(i++, new LoadConst(1));
+						bytecodes.add(i++, new Invoke(ACTOR, "getObject", new Function(
+								JAVA_LANG_OBJECT, T_INT), Bytecode.VIRTUAL));
+						bytecodes.add(i++, new CheckCast(ACTOR));
+					}
+
+					bytecodes.add(i++, new Load(0, ACTOR));
+
 					// Because we're resuming, the arguments don't actually matter. The
 					// analysis on the other end of the method will put the local
 					// variables into the right place.
-					for (int j = 0; j < size; ++j) {
+					for (int j = 1; j < size; ++j) {
 						bytecodes.add(i++, addNullValue(pTypes.get(j)));
 					}
 
@@ -134,10 +140,15 @@ public class ContinuationRewriting {
 
 					// Now the method has been invoked, this method needs to check if
 					// it caused the actor to yield.
-					i = addStrand(bytecodes, i);
-					bytecodes.add(++i, new Invoke(YIELDER, "isYielded", new Function(
-							T_BOOL), Bytecode.VIRTUAL));
+					bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+					bytecodes.add(++i, new Invoke(ACTOR, "isYielded",
+							new Function(T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
+
+					// Pop the irrelevant return value.
+					if (!invoke.type.returnType().equals(JvmTypes.T_VOID)) {
+						bytecodes.add(++i, new Pop(JvmTypes.JAVA_LANG_OBJECT));
+					}
 
 					i = addYield(method, bytecodes, i, location, frame);
 
@@ -168,8 +179,8 @@ public class ContinuationRewriting {
 		if (location > 0) {
 			int i = -1;
 
-			i = addStrand(bytecodes, i);
-			bytecodes.add(++i, new Invoke(YIELDER, "getCurrentStateLocation",
+			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+			bytecodes.add(++i, new Invoke(ACTOR, "getCurrentStateLocation",
 					new Function(T_INT), Bytecode.VIRTUAL));
 
 			List<Pair<Integer, String>> cases =
@@ -188,24 +199,13 @@ public class ContinuationRewriting {
 		}
 	}
 
-	private int addStrand(List<Bytecode> bytecodes, int i) {
-		// Ugh. Until we can tell whether a Java method operates on a Whiley
-		// actor,
-		// this is the only way to retrieve a strand for any method.
-
-		bytecodes.add(++i, new Bytecode.Invoke(STRAND, "getCurrentStrand",
-				new Function(STRAND), Bytecode.STATIC));
-
-		return i;
-	}
-
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
 			int location, StackMapTable.Frame frame) {
-		i = addStrand(bytecodes, i);
+		bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 
 		bytecodes.add(++i, new LoadConst(location));
-		bytecodes.add(++i, new Invoke(YIELDER, "yield",
-				new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
+		bytecodes.add(++i, new Invoke(ACTOR, "yield", new Function(T_VOID, T_INT),
+				Bytecode.VIRTUAL));
 
 		// TODO: incorporate liveness information here so that we don't store
 		// variables which are no longer live. This would help to cut down
@@ -214,7 +214,7 @@ public class ContinuationRewriting {
 		for (int var = 0; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
-				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 				bytecodes.add(++i, new LoadConst(var));
 				bytecodes.add(++i, new Load(var, type));
 
@@ -222,22 +222,22 @@ public class ContinuationRewriting {
 					type = JAVA_LANG_OBJECT;
 				}
 
-				bytecodes.add(++i, new Invoke(YIELDER, "set", new Function(T_VOID,
-						T_INT, type), Bytecode.VIRTUAL));
+				bytecodes.add(++i, new Invoke(ACTOR, "set", new Function(T_VOID, T_INT,
+						type), Bytecode.VIRTUAL));
 			}
 		}
 
 		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
-			i = addStrand(bytecodes, i);
+			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 			bytecodes.add(++i, new Swap());
 
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
 
-			bytecodes.add(++i, new Invoke(YIELDER, "push",
-					new Function(T_VOID, type), Bytecode.VIRTUAL));
+			bytecodes.add(++i, new Invoke(ACTOR, "push", new Function(T_VOID, type),
+					Bytecode.VIRTUAL));
 		}
 
 		JvmType returnType = method.type().returnType();
@@ -258,7 +258,7 @@ public class ContinuationRewriting {
 		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			JvmType methodType = type;
-			i = addStrand(bytecodes, i);
+			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 
 			String name;
 			if (type instanceof Reference) {
@@ -270,7 +270,7 @@ public class ContinuationRewriting {
 				name = "pop" + type.getClass().getSimpleName();
 			}
 
-			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType),
+			bytecodes.add(++i, new Invoke(ACTOR, name, new Function(methodType),
 					Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
@@ -281,7 +281,7 @@ public class ContinuationRewriting {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
 				JvmType methodType = type;
-				i = addStrand(bytecodes, i);
+				bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 				bytecodes.add(++i, new LoadConst(var));
 
 				String name;
@@ -294,7 +294,7 @@ public class ContinuationRewriting {
 					name = "get" + type.getClass().getSimpleName();
 				}
 
-				bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType,
+				bytecodes.add(++i, new Invoke(ACTOR, name, new Function(methodType,
 						T_INT), Bytecode.VIRTUAL));
 				if (type instanceof Reference) {
 					bytecodes.add(++i, new CheckCast(type));
@@ -303,8 +303,8 @@ public class ContinuationRewriting {
 			}
 		}
 
-		i = addStrand(bytecodes, i);
-		bytecodes.add(++i, new Invoke(YIELDER, "unyield", new Function(T_VOID),
+		bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+		bytecodes.add(++i, new Invoke(ACTOR, "unyield", new Function(T_VOID),
 				Bytecode.VIRTUAL));
 
 		return i;
