@@ -38,7 +38,7 @@ import wyjc.io.ClassFileBuilder;
 import wyjc.io.ClassFileLoader;
 import wyjvm.io.ClassFileWriter;
 import wyjvm.lang.ClassFile;
-import wyjvm.util.Continuations;
+import wyjvm.util.ContinuationRewriting;
 import wyjvm.util.DeadCodeElimination;
 import wyjvm.util.TypeAnalysis;
 import wyjvm.util.Validation;

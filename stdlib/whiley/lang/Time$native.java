@@ -29,10 +29,12 @@ import java.math.BigInteger;
 import wyjc.runtime.BigRational;
 
 public final class Time$native {
-    public static final BigInteger MILLIS = BigInteger.valueOf(1000);
 
-    public static BigRational current() {
-	long current = java.lang.System.currentTimeMillis();
-	return new BigRational(BigInteger.valueOf(current),MILLIS);
-    }
+	public static final BigInteger MILLIS = BigInteger.valueOf(1000);
+
+	public static BigRational current() {
+		long current = java.lang.System.currentTimeMillis();
+		return new BigRational(BigInteger.valueOf(current), MILLIS);
+	}
+	
 }

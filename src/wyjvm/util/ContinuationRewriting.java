@@ -54,11 +54,8 @@ import wyjvm.lang.BytecodeAttribute;
 import wyjvm.lang.ClassFile;
 import wyjvm.lang.ClassFile.Method;
 import wyjvm.lang.JvmType;
-import wyjvm.lang.JvmType.Bool;
-import wyjvm.lang.JvmType.Char;
 import wyjvm.lang.JvmType.Clazz;
 import wyjvm.lang.JvmType.Function;
-import wyjvm.lang.JvmType.Int;
 import wyjvm.lang.JvmType.Reference;
 import wyjvm.lang.JvmTypes;
 
@@ -68,11 +65,10 @@ import wyjvm.lang.JvmTypes;
  * 
  * @author Timothy Jones
  */
-public class Continuations {
+public class ContinuationRewriting {
 
 	private static final Clazz STRAND = new Clazz("wyjc.runtime.concurrency",
-	    "Strand"), MESSAGER = new Clazz("wyjc.runtime.concurrency", "Messager"),
-	    YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
+			"Strand"), YIELDER = new Clazz("wyjc.runtime.concurrency", "Yielder");
 
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
@@ -94,7 +90,7 @@ public class Continuations {
 		List<Bytecode> bytecodes = code.bytecodes();
 		StackMapTable stackMap = code.attribute(StackMapTable.class);
 		int location = 0;
-		
+
 		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
 
@@ -102,34 +98,11 @@ public class Continuations {
 
 			if (bytecode instanceof Invoke) {
 				Invoke invoke = (Invoke) bytecode;
-				String name = invoke.name;
 
-				if (invoke.owner.equals(MESSAGER) && name.equals("sendSync")) {
-					// A strand may have to yield after a synchronous message send. If
-					// the strand should yield afterwards, the stack needs to yield,
-					// then
-					// later resume AFTER the method call.
-
-					i = addStrand(bytecodes, i);
-					bytecodes.add(++i, new Invoke(YIELDER, "shouldYield", new Function(
-					    T_BOOL), Bytecode.VIRTUAL));
-					bytecodes.add(++i, new If(If.EQ, "skip" + location));
-					
-					// NB: get frame for location after the invoke
-					StackMapTable.Frame frame = stackMap.frameAt(location+1);
-					
-					i =
-					    addResume(bytecodes,
-					        addYield(method, bytecodes, i, location, frame),
-					        location, frame);
-					
-					bytecodes.add(++i, new Label("skip" + location));
-
-					location += 1;
-				} else if (canYield(invoke)) {
+				if (canYield(invoke)) {
 					// A strand may yield inside another method. If the method returns
 					// and the current strand is yielded, the stack needs to keep
-					// yielding, then later resume BEFORE the method call, so it reenters
+					// yielding, then later resume before the method call so it reenters
 					// the yielded method.
 
 					StackMapTable.Frame frame = stackMap.frameAt(i);
@@ -163,7 +136,7 @@ public class Continuations {
 					// it caused the actor to yield.
 					i = addStrand(bytecodes, i);
 					bytecodes.add(++i, new Invoke(YIELDER, "isYielded", new Function(
-					    T_BOOL), Bytecode.VIRTUAL));
+							T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
 					i = addYield(method, bytecodes, i, location, frame);
@@ -197,10 +170,10 @@ public class Continuations {
 
 			i = addStrand(bytecodes, i);
 			bytecodes.add(++i, new Invoke(YIELDER, "getCurrentStateLocation",
-			    new Function(T_INT), Bytecode.VIRTUAL));
+					new Function(T_INT), Bytecode.VIRTUAL));
 
 			List<Pair<Integer, String>> cases =
-			    new ArrayList<Pair<Integer, String>>(location);
+					new ArrayList<Pair<Integer, String>>(location);
 			for (int j = 0; j < location; ++j) {
 				cases.add(new Pair<Integer, String>(j, "resume" + j));
 			}
@@ -221,26 +194,26 @@ public class Continuations {
 		// this is the only way to retrieve a strand for any method.
 
 		bytecodes.add(++i, new Bytecode.Invoke(STRAND, "getCurrentStrand",
-		    new Function(STRAND), Bytecode.STATIC));
+				new Function(STRAND), Bytecode.STATIC));
 
 		return i;
 	}
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-	    int location, StackMapTable.Frame frame) {
+			int location, StackMapTable.Frame frame) {
 		i = addStrand(bytecodes, i);
 
 		bytecodes.add(++i, new LoadConst(location));
 		bytecodes.add(++i, new Invoke(YIELDER, "yield",
-		    new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
-		
+				new Function(T_VOID, T_INT), Bytecode.VIRTUAL));
+
 		// TODO: incorporate liveness information here so that we don't store
 		// variables which are no longer live. This would help to cut down
 		// potentially expensive boxing operations. It also simply reduces the
 		// number of bytecode instructions required to implement the yield.
 		for (int var = 0; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
-			if(!type.equals(JvmTypes.T_VOID)) { 
+			if (!type.equals(JvmTypes.T_VOID)) {
 				i = addStrand(bytecodes, i);
 				bytecodes.add(++i, new LoadConst(var));
 				bytecodes.add(++i, new Load(var, type));
@@ -253,7 +226,7 @@ public class Continuations {
 						T_INT, type), Bytecode.VIRTUAL));
 			}
 		}
-		
+
 		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			i = addStrand(bytecodes, i);
@@ -263,8 +236,8 @@ public class Continuations {
 				type = JAVA_LANG_OBJECT;
 			}
 
-			bytecodes.add(++i, new Invoke(YIELDER, "push", new Function(T_VOID,
-					type), Bytecode.VIRTUAL));
+			bytecodes.add(++i, new Invoke(YIELDER, "push",
+					new Function(T_VOID, type), Bytecode.VIRTUAL));
 		}
 
 		JvmType returnType = method.type().returnType();
@@ -279,7 +252,7 @@ public class Continuations {
 	}
 
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-	    StackMapTable.Frame frame) {
+			StackMapTable.Frame frame) {
 		bytecodes.add(++i, new Label("resume" + location));
 
 		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
@@ -298,15 +271,15 @@ public class Continuations {
 			}
 
 			bytecodes.add(++i, new Invoke(YIELDER, name, new Function(methodType),
-			    Bytecode.VIRTUAL));
+					Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
 			}
 		}
-		
+
 		for (int var = 0; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
-			if(!type.equals(JvmTypes.T_VOID)) {
+			if (!type.equals(JvmTypes.T_VOID)) {
 				JvmType methodType = type;
 				i = addStrand(bytecodes, i);
 				bytecodes.add(++i, new LoadConst(var));
@@ -332,7 +305,7 @@ public class Continuations {
 
 		i = addStrand(bytecodes, i);
 		bytecodes.add(++i, new Invoke(YIELDER, "unyield", new Function(T_VOID),
-		    Bytecode.VIRTUAL));
+				Bytecode.VIRTUAL));
 
 		return i;
 	}
@@ -342,18 +315,18 @@ public class Continuations {
 
 		if (type instanceof Reference) {
 			value = null;
-		} else if (type instanceof Bool) {
+		} else if (type instanceof JvmType.Bool) {
 			value = false;
-		} else if (type instanceof Char) {
+		} else if (type instanceof JvmType.Char) {
 			value = '\u0000';
 		} else if (type instanceof JvmType.Double) {
-			value = (Double) 0.0;
-		} else if (type instanceof Int) {
-			value = (Integer) 0;
+			value = 0.0;
+		} else if (type instanceof JvmType.Int) {
+			value = 0;
 		} else if (type instanceof JvmType.Float) {
-			value = (Float) 0f;
+			value = 0f;
 		} else if (type instanceof JvmType.Long) {
-			value = (Long) 0l;
+			value = 0l;
 		} else {
 			throw new UnsupportedOperationException("Unknown primitive type.");
 		}
@@ -363,10 +336,15 @@ public class Continuations {
 
 	private boolean canYield(Invoke invoke) {
 		// TODO Analyse the method body (how?) to tell if the method will actually
-		// yield at any point.
+		// yield at any point. The current implementation just cuts out obvious
+		// cases where there will be no yield.
 		String pkg = invoke.owner.pkg();
-		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("wyjc")
-		    && !pkg.startsWith("java");
+
+		if (pkg.startsWith("wyjc")) {
+			return pkg.equals("wyjc.runtime") && invoke.name.startsWith("send");
+		}
+
+		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("java");
 	}
 
 }

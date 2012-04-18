@@ -32,21 +32,21 @@ import wyjc.runtime.Actor;
 
 public class Actor$native {
 	
-	public static void yield(Actor actor) {
-		if (actor.isYielded()) {
-			actor.unyield();
+	public static void yield(Actor self) {
+		if (self.isYielded()) {
+			self.unyield();
 		} else {
-			actor.yield(0);
-			actor.getScheduler().schedule(actor);
+			self.yield(0);
+			self.getScheduler().schedule(self);
 		}
 	}
 	
-	public static void sleep(Actor actor, BigInteger millis)
+	public static void sleep(Actor self, BigInteger millis)
 	    throws InterruptedException {
-		if (actor.isYielded()) {
-			long time = actor.getLong(0);
+		if (self.isYielded()) {
+			long time = self.getLong(0);
 			if (System.currentTimeMillis() >= time) {
-				actor.unyield();
+				self.unyield();
 			}
 		} else {
 			long time = millis.longValue();
@@ -55,18 +55,18 @@ public class Actor$native {
 				return;
 			}
 			
-			actor.yield(0);
-			actor.getScheduler().schedule(actor);
-			actor.set(0, System.currentTimeMillis() + time);
+			self.yield(0);
+			self.getScheduler().schedule(self);
+			self.set(0, System.currentTimeMillis() + time);
 		}
 	}
 	
-	public static BigInteger getThreadCountUnfiltered(Actor actor) {
-		return BigInteger.valueOf(actor.getScheduler().getThreadCount());
+	public static BigInteger getThreadCountUnfiltered(Actor self) {
+		return BigInteger.valueOf(self.getScheduler().getThreadCount());
 	}
 	
-	public static void setThreadCount(Actor actor, BigInteger count) {
-		actor.getScheduler().setThreadCount(count.intValue());
+	public static void setThreadCount(Actor self, BigInteger count) {
+		self.getScheduler().setThreadCount(count.intValue());
 	}
 	
 }

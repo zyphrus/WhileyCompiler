@@ -37,15 +37,25 @@ import java.lang.reflect.Method;
  */
 public final class Actor extends Continuation implements Runnable {
 
+	private Object state;
+	
 	private final Scheduler scheduler;
 
+	// The linked-queue mailbox of messages.
 	private Message currentMessage = null;
-	private Message finalMessage = null;
+	private Message lastMessage = null;
+	
+	// FIXME Is there a better way of distinguishing the mail monitor?
+	// We can't synchronise on the messages themselves, because there needs to be
+	// something else to synchronise on for checking if there are any messages in
+	// the first place.
+	// We can synchronise on this actor, but there are other synchronise points
+	// for this actor which needn't block the message reading/writing.
+	private final Object mailMonitor = new Object();
 
+	// Used for throttling the mailbox size.
 	private int mailboxSize = 0;
 	private final int mailboxLimit = 10;
-
-	private Object state;
 
 	/**
 	 * Whether the messager should resume immediately upon completing its yielding
@@ -63,16 +73,6 @@ public final class Actor extends Continuation implements Runnable {
 	 * inconsistent state. Obviously, all messagers are ready to begin with.
 	 */
 	private boolean isReadyToResume = true;
-
-	/**
-	 * Temporary constructor to get File$native compiling. Remove once native
-	 * method can retrieve their running actor.
-	 * 
-	 * @param state The internal state of the actor
-	 */
-	public Actor(Object state) {
-		this(new Scheduler(0), state);
-	}
 
 	/**
 	 * A convenience constructor for actors with no state.
@@ -121,7 +121,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * @param method The method to call when running the message
 	 * @param arguments The arguments to pass to the method
 	 */
-	public void asyncSend(Actor sender, Method method, Object[] arguments) {
+	public void sendAsync(Actor sender, Method method, Object[] arguments) {
 		if (!sender.isYielded()) {
 			// This is the first time this method is entered for this message.
 			// Setup and add the message as normal.
@@ -160,7 +160,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * 
 	 * @throws Throwable The method call may fail for any reason
 	 */
-	public Object syncSend(Actor sender, Method method, Object[] arguments)
+	public Object sendSync(Actor sender, Method method, Object[] arguments)
 	    throws Throwable {
 		if (!sender.isYielded()) {
 			// This is the first time this method is entered for this message.
@@ -215,32 +215,33 @@ public final class Actor extends Continuation implements Runnable {
 	 * 
 	 * @return Whether the message was added successfully
 	 */
-	private synchronized boolean addMessage(Message message) {
-		// TODO Potentially try to synchronise this method over the finalMessage if
-		// it exists. Remains to be seen if this is trivial.
-		if (mailboxSize == mailboxLimit) {
-			return false;
+	private boolean addMessage(Message message) {
+		synchronized (mailMonitor) {
+			if (mailboxSize == mailboxLimit) {
+				return false;
+			}
+	
+			if (currentMessage == null) {
+				currentMessage = message;
+			} else {
+				lastMessage.next = message;
+			}
+	
+			mailboxSize += 1;
+			lastMessage = message;
 		}
-
-		if (currentMessage == null) {
-			currentMessage = message;
-		}
-
-		if (finalMessage != null) {
-			finalMessage.next = message;
-		}
-
-		mailboxSize += 1;
-		finalMessage = message;
 
 		return true;
 	}
 
 	@Override
 	public void run() {
-		while (currentMessage != null) {
-			Message message = currentMessage;
-
+		Message message;
+		synchronized (mailMonitor) {
+			message = currentMessage;
+		}
+		
+		while (message != null) {
 			try {
 				Object result = message.method.invoke(null, message.arguments);
 
@@ -285,9 +286,11 @@ public final class Actor extends Continuation implements Runnable {
 			}
 
 			if (!this.isYielded()) {
-				synchronized (this) {
+				synchronized (mailMonitor) {
 					currentMessage = message.next;
 				}
+				
+				message = message.next;
 			} else {
 				// This needs to be synchronized in case another actor is trying to
 				// schedule this one during the end. In this case, it may see
