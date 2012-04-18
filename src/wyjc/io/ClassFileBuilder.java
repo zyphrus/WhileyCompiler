@@ -316,7 +316,7 @@ public class ClassFileBuilder {
 		ArrayList<Handler> handlers = new ArrayList<Handler>();
 		ArrayList<LineNumberTable.Entry> lineNumbers = new ArrayList<LineNumberTable.Entry>();		
 		ArrayList<Bytecode> codes;				
-		codes = translate(mcase,constants,handlers,lineNumbers);		
+		codes = translate(mcase,method,constants,handlers,lineNumbers);		
 		wyjvm.attributes.Code code = new wyjvm.attributes.Code(codes,handlers,cm);
 		if(!lineNumbers.isEmpty()) {
 			code.attributes().add(new LineNumberTable(lineNumbers));
@@ -370,6 +370,9 @@ public class ClassFileBuilder {
 				bytecodes.add(new Bytecode.Load(slot++, convertType(mt
 						.receiver())));
 			}
+		} else if (ft instanceof Type.Method) {
+			Type.Method mt = (Type.Method) ft;
+			bytecodes.add(new Bytecode.Load(slot++, WHILEYOBJECT));
 		}
 
 		for (Type param : ft.params()) {
@@ -399,11 +402,17 @@ public class ClassFileBuilder {
 	}
 	
 	public ArrayList<Bytecode> translate(WyilFile.Case mcase,
-			HashMap<Constant, Integer> constants, ArrayList<Handler> handlers,
+			WyilFile.Method method, HashMap<Constant, Integer> constants,
+			ArrayList<Handler> handlers,
 			ArrayList<LineNumberTable.Entry> lineNumbers) {
+
+		// calculate first free slot
+		int freeSlot = mcase.body().numSlots();		
+		
 		ArrayList<Bytecode> bytecodes = new ArrayList<Bytecode>();
-		translate(mcase.body(), mcase.body().numSlots(), constants, handlers,
-				lineNumbers, bytecodes);
+		translate(mcase.body(), freeSlot, constants, handlers, lineNumbers,
+				bytecodes);
+
 		return bytecodes;
 	}
 

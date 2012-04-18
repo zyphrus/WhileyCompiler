@@ -163,7 +163,13 @@ public class LiveVariablesAnalysis extends BackwardFlowAnalysis<LiveVariablesAna
 			} else {
 				deadcode.remove(index);
 			}
-		} 
+		} else if (code instanceof Code.Send
+				|| code instanceof Code.IndirectSend) {
+			// FIXME: not sure if this is really needed.
+			// basically because the sender is also used
+			environment = new Env(environment);
+			environment.add(0);
+		}
 		
 		return environment;
 	}
