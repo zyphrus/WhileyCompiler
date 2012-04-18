@@ -162,8 +162,8 @@ public class Main {
 			new OptArg("outputdir", "d", STRING,
 					"Specify where to place generated class files",
 					null),
-			new OptArg("X", PIPELINEAPPEND, "append new pipeline stage"),
-			new OptArg("C", PIPELINECONFIGURE,
+			new OptArg("A", PIPELINEAPPEND, "append new pipeline stage"),
+			new OptArg("X", PIPELINECONFIGURE,
 					"configure existing pipeline stage"),
 			new OptArg("R", PIPELINEREMOVE, "remove existing pipeline stage"),
 			new OptArg(

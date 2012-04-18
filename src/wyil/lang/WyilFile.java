@@ -36,6 +36,7 @@ import wybs.lang.SyntacticElement;
 import wyil.util.*;
 import wyjc.io.ClassFileBuilder;
 import wyjc.io.ClassFileLoader;
+import wyjvm.io.BytecodeFileWriter;
 import wyjvm.io.ClassFileWriter;
 import wyjvm.lang.ClassFile;
 import wyjvm.util.ContinuationRewriting;
@@ -85,13 +86,14 @@ public final class WyilFile {
 			ta.apply(file);
 			
 			// add in actor continuations
-			//new Continuations().apply(file);		
+			new Continuations().apply(file);		
 			
 			// reapply the type analysis, since bytcodes changed by continuations
 			//ta.apply(file);
 			
 			ClassFileWriter writer = new ClassFileWriter(output,null);			
-			writer.write(file);	
+			//BytecodeFileWriter writer = new BytecodeFileWriter(output,null);
+			writer.write(file);
 			output.close();
 		}
 		

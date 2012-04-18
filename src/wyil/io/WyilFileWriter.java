@@ -28,6 +28,7 @@ package wyil.io;
 import java.io.*;
 import java.util.*;
 
+import wybs.lang.Builder;
 import wybs.lang.Path;
 import wyil.lang.*;
 import wyil.lang.WyilFile.*;
@@ -49,7 +50,7 @@ public final class WyilFileWriter implements Transform {
 	private boolean writeAttributes;
 	private boolean writeSlots;
 		
-	public WyilFileWriter(Path.Root project) {
+	public WyilFileWriter(Builder builder) {
 
 	}
 	
@@ -125,11 +126,12 @@ public final class WyilFileWriter implements Transform {
 		int li = 0;
 		if(ft instanceof Type.Message) {			
 			Type.Message mt = (Type.Message) ft;
-			if(mt.receiver() != null) {
-				out.print(mt.receiver());
-				li++;
-			}
+			out.print(mt.receiver());
+			li++;			
 			out.print("::");		
+		} else if(ft instanceof Type.Method) {			
+			li++;			
+			out.print("::");
 		}
 		out.print(method.name() + "(");
 		for(int i=0;i!=ft.params().size();++i) {						
