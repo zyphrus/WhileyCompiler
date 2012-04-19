@@ -186,6 +186,8 @@ public final class Actor extends Continuation implements Runnable {
 
 			return null;
 		} else if (sender.getBool(0)) {
+			sender.unyield();
+			
 			// The sender has yielded and returned to this method. The message add
 			// was successful, so it's time to resume.
 			SyncMessage message = (SyncMessage) currentMessage;
@@ -225,6 +227,8 @@ public final class Actor extends Continuation implements Runnable {
 	 * @return Whether the message was added successfully
 	 */
 	private boolean addMessage(Message message) {
+		boolean schedule = false;
+		
 		synchronized (mailMonitor) {
 			if (mailboxSize == mailboxLimit) {
 				return false;
@@ -232,12 +236,17 @@ public final class Actor extends Continuation implements Runnable {
 	
 			if (currentMessage == null) {
 				currentMessage = message;
+				schedule = true;
 			} else {
 				lastMessage.next = message;
 			}
 	
 			mailboxSize += 1;
 			lastMessage = message;
+		}
+		
+		if (schedule) {
+			this.schedule();
 		}
 
 		return true;

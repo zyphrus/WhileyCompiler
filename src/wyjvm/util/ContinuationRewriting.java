@@ -109,12 +109,14 @@ public class ContinuationRewriting {
 
 					List<JvmType> pTypes = invoke.type.parameterTypes();
 					int size = pTypes.size();
+					
+					boolean ignoreReturn = !invoke.type.returnType().equals(T_VOID);
 
 					// If the code flow is arriving here for the first time, it needs to
 					// skip the resume. Future resumptions will jump to the start of the
 					// function to right after this goto with the following resume.
 					bytecodes.add(i++, new Goto("invoke" + location));
-					i = addResume(bytecodes, i - 1, location, frame) + 1;
+					i = addResume(bytecodes, i - 1, location, frame, ignoreReturn) + 1;
 
 					// FIXME This is hacked inside of the Actor class to work.
 					// There should be a general solution to this problem.
@@ -150,7 +152,7 @@ public class ContinuationRewriting {
 						bytecodes.add(++i, new Pop(JvmTypes.JAVA_LANG_OBJECT));
 					}
 
-					i = addYield(method, bytecodes, i, location, frame);
+					i = addYield(method, bytecodes, i, location, frame, ignoreReturn);
 
 					bytecodes.add(++i, new Label("skip" + location));
 
@@ -200,7 +202,7 @@ public class ContinuationRewriting {
 	}
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-			int location, StackMapTable.Frame frame) {
+			int location, StackMapTable.Frame frame, boolean ignoreReturn) {
 		bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 
 		bytecodes.add(++i, new LoadConst(location));
@@ -226,8 +228,10 @@ public class ContinuationRewriting {
 						type), Bytecode.VIRTUAL));
 			}
 		}
+		
+		int length = frame.types.length;
 
-		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
 			bytecodes.add(++i, new Swap());
@@ -252,10 +256,12 @@ public class ContinuationRewriting {
 	}
 
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-			StackMapTable.Frame frame) {
+			StackMapTable.Frame frame, boolean ignoreReturn) {
 		bytecodes.add(++i, new Label("resume" + location));
+		
+		int length = frame.types.length;
 
-		for (int j = frame.types.length - 1; j >= frame.numLocals; --j) {
+		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			JvmType methodType = type;
 			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));

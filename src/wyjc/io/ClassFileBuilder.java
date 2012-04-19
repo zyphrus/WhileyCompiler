@@ -239,9 +239,11 @@ public class ClassFileBuilder {
 		
 		// Call the strand's constructor.
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
-		codes.add(new Bytecode.LoadConst(null));
 		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
-				new JvmType.Function(T_VOID, WHILEYSCHEDULER, JAVA_LANG_OBJECT), Bytecode.SPECIAL));
+				new JvmType.Function(T_VOID, WHILEYSCHEDULER), Bytecode.SPECIAL));
+		codes.add(new Bytecode.Dup(WHILEYOBJECT));
+		codes.add(new Bytecode.Store(2, WHILEYOBJECT));
+		
 		
 		// Create the console record.
 		codes.add(new Bytecode.Load(0, strArr));
@@ -249,13 +251,25 @@ public class ClassFileBuilder {
 		codes.add(new Bytecode.Invoke(WHILEYUTIL, "newSystemConsole",
 				new JvmType.Function(WHILEYRECORD, new JvmType.Array(JAVA_LANG_STRING),
 						WHILEYSCHEDULER), Bytecode.STATIC));
+		codes.add(new Bytecode.Store(3, WHILEYRECORD));
+		
+		// Yielding loop label.
+		codes.add(new Bytecode.Label("main"));
 
-		// Get the ::main method out.
+		// Call the ::main method.
+		codes.add(new Bytecode.Load(2, WHILEYOBJECT));
+		codes.add(new Bytecode.Load(3, WHILEYRECORD));
 		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
 		codes.add(new Bytecode.Invoke(owner, nameMangle("main", wyft),
 				convertFunType(wyft), Bytecode.STATIC));
 		
-		// shutdown the scheduler
+		// Check for yield.
+		codes.add(new Bytecode.Load(2, WHILEYOBJECT));
+		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "isYielded",
+				new JvmType.Function(T_BOOL), Bytecode.VIRTUAL));
+		codes.add(new Bytecode.If(Bytecode.If.NE, "main"));
+		
+		// Shut down the scheduler.
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
 		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "shutdown",
 				new JvmType.Function(T_VOID), Bytecode.VIRTUAL));
