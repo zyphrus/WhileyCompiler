@@ -10,5 +10,5 @@ void ::main(Console sys):
     sys.out?println(actor->state)
 
 void Actor::setState(string state):
-    sleep(1000)
+    sleep(100)
     this->state = state

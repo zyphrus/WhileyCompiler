@@ -91,7 +91,7 @@ public class ContinuationRewriting {
 		StackMapTable stackMap = code.attribute(StackMapTable.class);
 		int location = 0;
 
-		for (int i = 0; i < bytecodes.size(); ++i) {
+		for (int i = 0, old = 0; i < bytecodes.size(); ++i, ++old) {
 			Bytecode bytecode = bytecodes.get(i);
 
 			int original = i;
@@ -105,7 +105,8 @@ public class ContinuationRewriting {
 					// yielding, then later resume before the method call so it reenters
 					// the yielded method.
 
-					StackMapTable.Frame frame = stackMap.frameAt(i + 1);
+					// TODO Adjust the stack map (like the handlers are).
+					StackMapTable.Frame frame = stackMap.frameAt(old + 1);
 
 					List<JvmType> pTypes = invoke.type.parameterTypes();
 					int size = pTypes.size();

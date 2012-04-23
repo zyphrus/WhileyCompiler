@@ -41,8 +41,7 @@ public class Actor$native {
 		}
 	}
 	
-	public static void sleep(Actor self, BigInteger millis)
-	    throws InterruptedException {
+	public static void sleep(Actor self, BigInteger millis) {
 		if (self.isYielded()) {
 			long time = self.getLong(0);
 			if (System.currentTimeMillis() >= time) {
