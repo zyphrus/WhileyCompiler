@@ -122,7 +122,7 @@ public class ContinuationRewriting {
 					// There should be a general solution to this problem.
 					if (invoke.mode == Bytecode.VIRTUAL) {
 						bytecodes.add(i++, new Load(0, ACTOR));
-						bytecodes.add(i++, new LoadConst(1));
+						bytecodes.add(i++, new LoadConst(0));
 						bytecodes.add(i++, new Invoke(ACTOR, "getObject", new Function(
 								JAVA_LANG_OBJECT, T_INT), Bytecode.VIRTUAL));
 						bytecodes.add(i++, new CheckCast(ACTOR));

@@ -41,6 +41,8 @@ public final class Scheduler {
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
 	
+	private int taskCount = 0;
+	
 	private int threadCount;
 	
 	/**
@@ -89,14 +91,23 @@ public final class Scheduler {
 	 * @param strand The object to schedule a resume for
 	 */
 	public void schedule(Actor actor) {
+		synchronized (this) {
+			taskCount += 1;
+		}
+		
 		pool.execute(actor);
 	}
 	
-	/**
-	 * Finishes execution of queued actors and then shuts down the scheduler.
-	 */
-	public void shutdown() {
-		pool.shutdown();
+	protected void taskCompleted() {
+		int count;
+		
+		synchronized (this) {
+			count = taskCount -= 1;
+		}
+		
+		if (count == 0) {
+			pool.shutdown();
+		}
 	}
 	
 }

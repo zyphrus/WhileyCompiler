@@ -131,10 +131,10 @@ public final class Actor extends Continuation implements Runnable {
 				// The message add failed. Save the message for the next time and yield
 				// control of the thread.
 				sender.yield(0);
-				sender.set(0, message);
+				sender.set(1, message);
 				
-				// FIXME Make this work independent of the method implementation.
-				sender.set(1, this);
+				// FIXME The rewriter should be able to save the receiver by itself.
+				sender.set(0, this);
 
 				// FIXME Should the sender just keep trying, or should this actor save
 				// who has tried before and inform them when it's safe to try again?
@@ -143,11 +143,11 @@ public final class Actor extends Continuation implements Runnable {
 		} else {
 			// The sender has yielded and returned to this method. Attempt to add
 			// the saved message again.
-			Message message = (Message) sender.getObject(0);
+			Message message = (Message) sender.getObject(1);
 			if (addMessage(message)) {
 				sender.unyield();
 			} else {
-				// FIXME As above.
+				// FIXME As in the schedule above.
 				sender.schedule();
 			}
 		}
@@ -173,24 +173,25 @@ public final class Actor extends Continuation implements Runnable {
 			boolean added = addMessage(message);
 
 			sender.yield(0);
-			sender.set(0, added);
+			sender.set(1, added);
 			sender.set(2, message);
 			
-			// FIXME Make this work independent of the method implementation.
-			sender.set(1, this);
+			// FIXME The rewriter should be able to save the receiver by itself.
+			sender.set(0, this);
 
 			if (!added) {
-				// FIXME As above.
+				// FIXME Should the sender just keep trying, or should this actor save
+				// who has tried before and inform them when it's safe to try again?
 				sender.schedule();
 			}
 
 			return null;
-		} else if (sender.getBool(0)) {
-			sender.unyield();
-			
+		} else if (sender.getBool(1)) {
 			// The sender has yielded and returned to this method. The message add
 			// was successful, so it's time to resume.
-			SyncMessage message = (SyncMessage) currentMessage;
+			SyncMessage message = (SyncMessage) sender.getObject(2);
+			
+			sender.unyield();
 
 			// If the message failed, throw its failure exception.
 			if (message.cause != null) {
@@ -202,13 +203,13 @@ public final class Actor extends Continuation implements Runnable {
 			SyncMessage message = (SyncMessage) sender.getObject(2);
 			boolean added = addMessage(message);
 
-			sender.set(0, added);
+			sender.set(1, added);
 			
-			// FIXME Make this work independent of the method implementation.
-			sender.set(1, this);
+			// FIXME The rewriter should be able to save the receiver by itself.
+			sender.set(0, this);
 
 			if (!added) {
-				// FIXME As above.
+				// FIXME As in the schedule above.
 				sender.schedule();
 			}
 
@@ -304,6 +305,8 @@ public final class Actor extends Continuation implements Runnable {
 			}
 
 			if (!this.isYielded()) {
+				scheduler.taskCompleted();
+				
 				synchronized (mailMonitor) {
 					currentMessage = message.next;
 				}
@@ -319,8 +322,8 @@ public final class Actor extends Continuation implements Runnable {
 					isReadyToResume = true;
 				}
 
-				if (shouldResumeImmediately) {
-					schedule();
+				if (!shouldResumeImmediately) {
+					return;
 				}
 			}
 		}

@@ -233,46 +233,40 @@ public class ClassFileBuilder {
 		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "<init>", ctype,
 				Bytecode.SPECIAL));
 		
-		// Create the starting strand.
+		// Create the starting actor.
 		codes.add(new Bytecode.New(WHILEYOBJECT));
 		codes.add(new Bytecode.Dup(WHILEYOBJECT));
-		
-		// Call the strand's constructor.
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
 		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
 				new JvmType.Function(T_VOID, WHILEYSCHEDULER), Bytecode.SPECIAL));
 		codes.add(new Bytecode.Dup(WHILEYOBJECT));
-		codes.add(new Bytecode.Store(2, WHILEYOBJECT));
 		
+		// Load the main method.
+		codes.add(new Bytecode.LoadConst(owner.toString()));
+		codes.add(new Bytecode.LoadConst(nameMangle("main",
+				Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T))));
+		codes.add(new Bytecode.Invoke(WHILEYUTIL, "functionRef",
+				new JvmType.Function(JAVA_LANG_REFLECT_METHOD, JAVA_LANG_STRING,
+						JAVA_LANG_STRING), Bytecode.STATIC));
 		
-		// Create the console record.
+		// Create the argument array and prepare to insert the argument.
+		codes.add(new Bytecode.LoadConst(2));
+		codes.add(new Bytecode.New(JAVA_LANG_OBJECT_ARRAY));
+		codes.add(new Bytecode.Dup(JAVA_LANG_OBJECT_ARRAY));
+		codes.add(new Bytecode.LoadConst(1));
+		
+		// Create and insert the console record.
 		codes.add(new Bytecode.Load(0, strArr));
 		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
 		codes.add(new Bytecode.Invoke(WHILEYUTIL, "newSystemConsole",
 				new JvmType.Function(WHILEYRECORD, new JvmType.Array(JAVA_LANG_STRING),
 						WHILEYSCHEDULER), Bytecode.STATIC));
-		codes.add(new Bytecode.Store(3, WHILEYRECORD));
-		
-		// Yielding loop label.
-		codes.add(new Bytecode.Label("main"));
+		codes.add(new Bytecode.ArrayStore(JAVA_LANG_OBJECT_ARRAY));
 
-		// Call the ::main method.
-		codes.add(new Bytecode.Load(2, WHILEYOBJECT));
-		codes.add(new Bytecode.Load(3, WHILEYRECORD));
-		Type.Method wyft = Type.Method(Type.T_VOID, Type.T_VOID, WHILEY_SYSTEM_T);
-		codes.add(new Bytecode.Invoke(owner, nameMangle("main", wyft),
-				convertFunType(wyft), Bytecode.STATIC));
-		
-		// Check for yield.
-		codes.add(new Bytecode.Load(2, WHILEYOBJECT));
-		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "isYielded",
-				new JvmType.Function(T_BOOL), Bytecode.VIRTUAL));
-		codes.add(new Bytecode.If(Bytecode.If.NE, "main"));
-		
-		// Shut down the scheduler.
-		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
-		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "shutdown",
-				new JvmType.Function(T_VOID), Bytecode.VIRTUAL));
+		// Send the actor the message.
+		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "sendAsync",
+				new JvmType.Function(T_VOID, WHILEYOBJECT, JAVA_LANG_REFLECT_METHOD,
+						JAVA_LANG_OBJECT_ARRAY), Bytecode.VIRTUAL));
 		
 		// And return.
 		codes.add(new Bytecode.Return(null));
