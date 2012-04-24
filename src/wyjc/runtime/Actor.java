@@ -39,7 +39,7 @@ public final class Actor extends Continuation implements Runnable {
 
 	private Object state;
 	
-	private final Scheduler scheduler;
+	private final ThreadPool pool;
 
 	// The linked-queue mailbox of messages.
 	private Message currentMessage = null;
@@ -79,16 +79,16 @@ public final class Actor extends Continuation implements Runnable {
 	 * 
 	 * @param scheduler The scheduler to use for concurrency
 	 */
-	public Actor(Scheduler scheduler) {
-		this(scheduler, null);
+	public Actor(ThreadPool scheduler) {
+		this(null, scheduler);
 	}
 
 	/**
 	 * @param scheduler The scheduler to use for concurrency
 	 * @param state The internal state of the actor
 	 */
-	public Actor(Scheduler scheduler, Object state) {
-		this.scheduler = scheduler;
+	public Actor(Object state, ThreadPool pool) {
+		this.pool = pool;
 		this.state = state;
 	}
 
@@ -109,8 +109,8 @@ public final class Actor extends Continuation implements Runnable {
 	/**
 	 * @return The scheduler used by this actor for concurrency
 	 */
-	public Scheduler getScheduler() {
-		return scheduler;
+	public ThreadPool getThreadPool() {
+		return pool;
 	}
 
 	/**
@@ -290,6 +290,7 @@ public final class Actor extends Continuation implements Runnable {
 				} else {
 					// This is here for debugging purposes.
 					String reason = cause.getMessage();
+					cause.printStackTrace();
 
 					System.err.print(this + " failed in a message to "
 					    + message.method.getName() + " because ");
@@ -305,7 +306,7 @@ public final class Actor extends Continuation implements Runnable {
 			}
 
 			if (!this.isYielded()) {
-				scheduler.taskCompleted();
+				pool.taskCompleted();
 				
 				synchronized (mailMonitor) {
 					currentMessage = message.next;
@@ -355,7 +356,7 @@ public final class Actor extends Continuation implements Runnable {
 		// Schedule is successful, so restore these to default values.
 		isReadyToResume = shouldResumeImmediately = false;
 
-		scheduler.schedule(this);
+		pool.run(this);
 	}
 
 	@Override

@@ -1029,9 +1029,9 @@ public class Util {
 	}
 	
 
-	public static Record newSystemConsole(String[] args, Scheduler scheduler) {
+	public static Record newSystemConsole(String[] args, ThreadPool pool) {
 		// Not sure what the default value should be yet!!!
-		Actor sysout = new Actor(scheduler,null);
+		Actor sysout = new Actor("sysout", pool);
 		Record data = new Record();
 		data.put("out", sysout);		
 		data.put("args", fromStringList(args));

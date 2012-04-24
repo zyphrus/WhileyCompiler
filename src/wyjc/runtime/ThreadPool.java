@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
  * 
  * @author Timothy Jones
  */
-public final class Scheduler {
+public final class ThreadPool {
 	
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
@@ -49,7 +49,7 @@ public final class Scheduler {
 	 * Creates a new scheduler with a cached thread pool, meaning threads will be
 	 * booted up as needed, rather than all at once.
 	 */
-	public Scheduler() {
+	public ThreadPool() {
 		this.threadCount = 0;
 		pool = Executors.newCachedThreadPool();
 	}
@@ -59,7 +59,7 @@ public final class Scheduler {
 	 * 
 	 * @param threadCount The number of threads to have in the pool
 	 */
-	public Scheduler(int threadCount) {
+	public ThreadPool(int threadCount) {
 		this.threadCount = threadCount;
 		pool = Executors.newFixedThreadPool(threadCount);
 	}
@@ -90,7 +90,7 @@ public final class Scheduler {
 	 * 
 	 * @param strand The object to schedule a resume for
 	 */
-	public void schedule(Actor actor) {
+	public void run(Actor actor) {
 		synchronized (this) {
 			taskCount += 1;
 		}

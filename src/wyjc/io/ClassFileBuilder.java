@@ -216,11 +216,11 @@ public class ClassFileBuilder {
 		ArrayList<Bytecode> codes = new ArrayList<Bytecode>();
 	
 		// Create the scheduler that will handle concurrency.
-		codes.add(new Bytecode.New(WHILEYSCHEDULER));
+		codes.add(new Bytecode.New(WHILEYTHREADPOOL));
 		
 		// Store the scheduler for later.
-		codes.add(new Bytecode.Dup(WHILEYSCHEDULER));
-		codes.add(new Bytecode.Store(1, WHILEYSCHEDULER));
+		codes.add(new Bytecode.Dup(WHILEYTHREADPOOL));
+		codes.add(new Bytecode.Store(1, WHILEYTHREADPOOL));
 		
 		// Use the special constructor if a fixed number of threads is called for.
 		JvmType.Function ctype;
@@ -230,15 +230,17 @@ public class ClassFileBuilder {
 		} else {
 			ctype = new JvmType.Function(T_VOID);
 		}
-		codes.add(new Bytecode.Invoke(WHILEYSCHEDULER, "<init>", ctype,
+		codes.add(new Bytecode.Invoke(WHILEYTHREADPOOL, "<init>", ctype,
 				Bytecode.SPECIAL));
 		
 		// Create the starting actor.
 		codes.add(new Bytecode.New(WHILEYOBJECT));
 		codes.add(new Bytecode.Dup(WHILEYOBJECT));
-		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
+		codes.add(new Bytecode.LoadConst("main"));
+		codes.add(new Bytecode.Load(1, WHILEYTHREADPOOL));
 		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
-				new JvmType.Function(T_VOID, WHILEYSCHEDULER), Bytecode.SPECIAL));
+				new JvmType.Function(T_VOID, JAVA_LANG_OBJECT, WHILEYTHREADPOOL),
+				Bytecode.SPECIAL));
 		codes.add(new Bytecode.Dup(WHILEYOBJECT));
 		
 		// Load the main method.
@@ -257,10 +259,10 @@ public class ClassFileBuilder {
 		
 		// Create and insert the console record.
 		codes.add(new Bytecode.Load(0, strArr));
-		codes.add(new Bytecode.Load(1, WHILEYSCHEDULER));
+		codes.add(new Bytecode.Load(1, WHILEYTHREADPOOL));
 		codes.add(new Bytecode.Invoke(WHILEYUTIL, "newSystemConsole",
 				new JvmType.Function(WHILEYRECORD, new JvmType.Array(JAVA_LANG_STRING),
-						WHILEYSCHEDULER), Bytecode.STATIC));
+						WHILEYTHREADPOOL), Bytecode.STATIC));
 		codes.add(new Bytecode.ArrayStore(JAVA_LANG_OBJECT_ARRAY));
 
 		// Send the actor the message.
@@ -646,7 +648,10 @@ public class ClassFileBuilder {
 		
 		multiStoreHelper(code.afterType, code.level - 1, code.fields.iterator(),
 				indexSlot, val_t, freeSlot, bytecodes);
-		bytecodes.add(new Bytecode.Store(code.slot, convertType(code.afterType)));
+		if (!Type.isSubtype(Type.Reference(Type.T_ANY), code.afterType)) {
+			// No point in resaving a reference.
+			bytecodes.add(new Bytecode.Store(code.slot, convertType(code.afterType)));
+		}
 	}
 
 	public void multiStoreHelper(Type type, int level,
@@ -664,10 +669,9 @@ public class ClassFileBuilder {
 			bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "getState", ftype,
 					Bytecode.VIRTUAL));							
 			addReadConversion(pt.element(),bytecodes);
-			multiStoreHelper(pt.element(),level-1,fields,indexSlot,val_t,freeSlot,bytecodes);						
-			ftype = new JvmType.Function(WHILEYOBJECT,JAVA_LANG_OBJECT);		
-			bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "setState", ftype,
-					Bytecode.VIRTUAL));
+			multiStoreHelper(pt.element(),level-1,fields,indexSlot,val_t,freeSlot,bytecodes);		
+			bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "setState",
+					new JvmType.Function(T_VOID, JAVA_LANG_OBJECT), Bytecode.VIRTUAL));
 			
 		} else if(type instanceof Type.EffectiveDictionary) {
 			Type.EffectiveDictionary dict = (Type.EffectiveDictionary) type;				
@@ -1407,13 +1411,15 @@ public class ClassFileBuilder {
 	}
 	
 	public void translate(Code.New c, int freeSlot,
-			ArrayList<Bytecode> bytecodes) {							
-		bytecodes.add(new Bytecode.New(WHILEYOBJECT));			
+			ArrayList<Bytecode> bytecodes) {
+		bytecodes.add(new Bytecode.New(WHILEYOBJECT));
 		bytecodes.add(new Bytecode.DupX1());
 		bytecodes.add(new Bytecode.Swap());
-		// TODO: problem here ... need to swap or something		
-		JvmType.Function ftype = new JvmType.Function(T_VOID, JAVA_LANG_OBJECT);
-		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>", ftype,
+		bytecodes.add(new Bytecode.Load(0, WHILEYOBJECT));
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "getThreadPool",
+				new JvmType.Function(WHILEYTHREADPOOL), Bytecode.VIRTUAL));
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
+				new JvmType.Function(T_VOID, JAVA_LANG_OBJECT, WHILEYTHREADPOOL),
 				Bytecode.SPECIAL));
 	}
 	
@@ -2726,8 +2732,8 @@ public class ClassFileBuilder {
 	public final static JvmType.Clazz WHILEYRECORD = new JvmType.Clazz("wyjc.runtime","Record");	
 	public final static JvmType.Clazz WHILEYOBJECT = new JvmType.Clazz(
 			"wyjc.runtime", "Actor");	
-	public final static JvmType.Clazz WHILEYSCHEDULER = new JvmType.Clazz(
-			"wyjc.runtime", "Scheduler");
+	public final static JvmType.Clazz WHILEYTHREADPOOL = new JvmType.Clazz(
+			"wyjc.runtime", "ThreadPool");
 	public final static JvmType.Clazz WHILEYEXCEPTION = new JvmType.Clazz("wyjc.runtime","Exception");	
 	public final static JvmType.Clazz BIG_INTEGER = new JvmType.Clazz("java.math","BigInteger");
 	public final static JvmType.Clazz BIG_RATIONAL = new JvmType.Clazz("wyjc.runtime","BigRational");

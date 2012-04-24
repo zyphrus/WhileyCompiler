@@ -214,7 +214,7 @@ public class ContinuationRewriting {
 		// variables which are no longer live. This would help to cut down
 		// potentially expensive boxing operations. It also simply reduces the
 		// number of bytecode instructions required to implement the yield.
-		for (int var = 0; var != frame.numLocals; var++) {
+		for (int var = 1; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
 				bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
@@ -284,7 +284,7 @@ public class ContinuationRewriting {
 			}
 		}
 
-		for (int var = 0; var != frame.numLocals; var++) {
+		for (int var = 1; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
 				JvmType methodType = type;
@@ -350,8 +350,14 @@ public class ContinuationRewriting {
 		if (pkg.startsWith("wyjc")) {
 			return pkg.equals("wyjc.runtime") && invoke.name.startsWith("send");
 		}
+		
+		if (invoke.mode == Bytecode.STATIC && !pkg.startsWith("java")) {
+			return true;
+		}
 
-		return invoke.mode == Bytecode.STATIC && !pkg.startsWith("java");
+		List<JvmType> params = invoke.type.parameterTypes();
+		
+		return params.size() > 0 && params.get(0).equals(ACTOR);
 	}
 
 }

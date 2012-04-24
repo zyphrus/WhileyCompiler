@@ -37,11 +37,12 @@ public class Actor$native {
 			self.unyield();
 		} else {
 			self.yield(0);
-			self.getScheduler().schedule(self);
+			self.getThreadPool().run(self);
 		}
 	}
 	
 	public static void sleep(Actor self, BigInteger millis) {
+		System.out.println("sleep");
 		if (self.isYielded()) {
 			long time = self.getLong(0);
 			if (System.currentTimeMillis() >= time) {
@@ -55,17 +56,17 @@ public class Actor$native {
 			}
 			
 			self.yield(0);
-			self.getScheduler().schedule(self);
+			self.getThreadPool().run(self);
 			self.set(0, System.currentTimeMillis() + time);
 		}
 	}
 	
 	public static BigInteger getThreadCountUnfiltered(Actor self) {
-		return BigInteger.valueOf(self.getScheduler().getThreadCount());
+		return BigInteger.valueOf(self.getThreadPool().getThreadCount());
 	}
 	
 	public static void setThreadCount(Actor self, BigInteger count) {
-		self.getScheduler().setThreadCount(count.intValue());
+		self.getThreadPool().setThreadCount(count.intValue());
 	}
 	
 }

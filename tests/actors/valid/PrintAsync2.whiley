@@ -7,7 +7,7 @@ void ::main(Console sys):
     actor = new { state: "state" }
     sys.out!println(actor->state)
     actor!setState("never")
-    sys.out?println(actor->state)
+    sys.out!println(actor->state)
 
 void Actor::setState(string state):
     sleep(100)

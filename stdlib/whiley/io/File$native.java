@@ -44,7 +44,7 @@ public class File$native {
 			FileInputStream fin = new FileInputStream(filename);
 			r.put("fileName", filename);
 			r.put("$fin", fin);
-			Actor p = new Actor(self.getScheduler(), r);
+			Actor p = new Actor(r, self.getThreadPool());
 			return p;
 		} catch(FileNotFoundException e) {
 			r.put("msg", e.getMessage());			
@@ -58,7 +58,7 @@ public class File$native {
 			FileOutputStream fout = new FileOutputStream(filename);
 			r.put("fileName", filename);
 			r.put("$fout", fout);			
-			Actor p = new Actor(self.getScheduler(), r);
+			Actor p = new Actor(r, self.getThreadPool());
 			return p;
 		} catch(FileNotFoundException e) {
 			r.put("msg", e.getMessage());	
