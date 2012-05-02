@@ -365,7 +365,6 @@ public final class Actor extends Continuation implements Runnable {
 	}
 
 	private static class Message {
-
 		public final Method method;
 		public final Object[] arguments;
 
@@ -379,7 +378,6 @@ public final class Actor extends Continuation implements Runnable {
 	}
 
 	private static final class SyncMessage extends Message {
-
 		public final Actor sender;
 		public Object result = null;
 		public Throwable cause = null;
@@ -388,7 +386,5 @@ public final class Actor extends Continuation implements Runnable {
 			super(method, arguments);
 			this.sender = sender;
 		}
-
 	}
-
 }

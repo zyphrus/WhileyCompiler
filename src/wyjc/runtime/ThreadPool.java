@@ -92,6 +92,7 @@ public final class ThreadPool {
 	 */
 	public void run(Actor actor) {
 		synchronized (this) {
+			System.out.println("UP (" + taskCount + ")");
 			taskCount += 1;
 		}
 		
@@ -105,7 +106,9 @@ public final class ThreadPool {
 			count = taskCount -= 1;
 		}
 		
-		if (count == 0) {
+		System.out.println("DOWN (" + count + ")");
+		
+		if (count == 0) {			
 			pool.shutdown();
 		}
 	}
