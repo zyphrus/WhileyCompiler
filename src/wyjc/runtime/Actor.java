@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @author David Pearce
  * @author Timothy Jones
  */
-public final class Actor extends Continuation implements Runnable {
+public final class Actor extends Continuation {
 	/**
 	 * The state this actor refers to.
 	 */

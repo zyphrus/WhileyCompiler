@@ -90,13 +90,13 @@ public final class Scheduler {
 	 * 
 	 * @param strand The object to schedule a resume for
 	 */
-	public void run(Actor actor) {
+	public void schedule(Continuation continuation) {
 		synchronized (this) {
 			System.out.println("UP (" + taskCount + ") ");
 			taskCount += 1;
 		}
-		
-		pool.execute(actor);
+
+		pool.execute(continuation);
 	}
 	
 	protected void taskCompleted() {

@@ -37,7 +37,7 @@ import java.util.Stack;
  * @author David J. Pearce
  * @author Timothy Jones
  */
-public abstract class Continuation {
+public abstract class Continuation implements Runnable {
 
 	/**
 	 * A continuation is in the READY state if it is not currently running, but
