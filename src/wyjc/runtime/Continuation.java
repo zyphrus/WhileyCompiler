@@ -78,7 +78,7 @@ public abstract class Continuation {
 	/**
 	 * ThreadPool to which this continuation is allocated.
 	 */
-	private final ThreadPool pool;
+	private final Scheduler pool;
 
 	/**
 	 * Saved state of continuation, which is required for winding/unwinding.
@@ -95,12 +95,17 @@ public abstract class Continuation {
 	 */
 	private volatile byte status = READY;
 
-	public Continuation(ThreadPool pool) {
+	/**
+	 * Construct a continuation in a given thread pool
+	 * 
+	 * @param pool
+	 */
+	public Continuation(Scheduler pool) {
 		this.pool = pool;
 	}
 
 	/**
-	 * @return Whether the object is currently yielding or has yielded
+	 * Get the status of this continuation.
 	 */
 	public int status() {
 		return status;
@@ -109,7 +114,7 @@ public abstract class Continuation {
 	/**
 	 * @return The scheduler used by this actor for concurrency
 	 */
-	public ThreadPool getThreadPool() {
+	public Scheduler getThreadPool() {
 		return pool;
 	}
 	
@@ -140,6 +145,14 @@ public abstract class Continuation {
 	}
 
 	/**
+	 * Unblock a given continuation.
+	 */
+	public void schedule() {
+		status = READY;
+		pool.schedule(this);
+	}
+	
+	/**
 	 * Unwind the continuation at a given bytecode location. This is called
 	 * during the unwinding process for intermediate stack frames. It should not
 	 * be called to initiate an unwinding. Furthermore, the state of the locals
@@ -153,8 +166,7 @@ public abstract class Continuation {
 	}
 
 	/**
-	 * Pops a local state object off of the stack, moving the get and pop and
-	 * pop methods onto the next local values.
+	 * Indicates the thread has finished restoring the current stack frame.
 	 */
 	public void restored() {
 		current = state.peek();
@@ -290,7 +302,5 @@ public abstract class Continuation {
 		public State(int location) {
 			this.location = location;
 		}
-
 	}
-
 }
