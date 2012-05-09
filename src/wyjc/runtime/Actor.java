@@ -39,11 +39,9 @@ public final class Actor extends Continuation implements Runnable {
 
 	private Object state;
 	
-	private final ThreadPool pool;
-
 	// The linked-queue mailbox of messages.
-	private Message currentMessage = null;
-	private Message lastMessage = null;
+	private volatile Message currentMessage = null;
+	private volatile Message lastMessage = null;
 	
 	// FIXME Is there a better way of distinguishing the mail monitor?
 	// We can't synchronise on the messages themselves, because there needs to be
@@ -64,7 +62,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * <code>shouldResumeImmediately</code> will cause this actor to immediately
 	 * place itself back in the scheduler.
 	 */
-	private boolean shouldResumeImmediately = false;
+	private volatile boolean shouldResumeImmediately = false;
 
 	/**
 	 * Whether the messager is ready to resume. This is important if a message is
@@ -72,7 +70,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * it has completed yielding, in which case the messager will enter an
 	 * inconsistent state. Obviously, all messagers are ready to begin with.
 	 */
-	private boolean isReadyToResume = true;
+	private volatile boolean isReadyToResume = true;
 
 	/**
 	 * A convenience constructor for actors with no state.
@@ -88,7 +86,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * @param state The internal state of the actor
 	 */
 	public Actor(Object state, ThreadPool pool) {
-		this.pool = pool;
+		super(pool);
 		this.state = state;
 	}
 
@@ -107,13 +105,6 @@ public final class Actor extends Continuation implements Runnable {
 	}
 
 	/**
-	 * @return The scheduler used by this actor for concurrency
-	 */
-	public ThreadPool getThreadPool() {
-		return pool;
-	}
-
-	/**
 	 * Send a message asynchronously to this actor. If the mailbox is full, then
 	 * this will in fact block.
 	 * 
@@ -122,6 +113,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * @param arguments The arguments to pass to the method
 	 */
 	public void sendAsync(Actor sender, Method method, Object[] arguments) {
+		System.out.println("SENDING ASYNCH: " + method);
 		if (!sender.isYielded()) {
 			// This is the first time this method is entered for this message.
 			// Setup and add the message as normal.
@@ -164,8 +156,9 @@ public final class Actor extends Continuation implements Runnable {
 	 * @throws Throwable The method call may fail for any reason
 	 */
 	public Object sendSync(Actor sender, Method method, Object[] arguments)
-	    throws Throwable {
+	    throws Throwable {		
 		if (!sender.isYielded()) {
+			System.out.println("SENDING SYNCH: " + method);
 			// This is the first time this method is entered for this message.
 			// Setup and add the message as normal.
 			arguments[0] = this;
@@ -187,8 +180,11 @@ public final class Actor extends Continuation implements Runnable {
 
 			return null;
 		} else if (sender.getBool(1)) {
-			// The sender has yielded and returned to this method. The message add
-			// was successful, so it's time to resume.
+			// The sender has yielded and returned to this method. The message
+			// add was successful, so it's time to resume. In this case, a value
+			// was returned.
+
+			System.out.println("RESUMING SYNCH: " + method);
 			SyncMessage message = (SyncMessage) sender.getObject(2);
 			
 			sender.unyield();
@@ -200,6 +196,10 @@ public final class Actor extends Continuation implements Runnable {
 
 			return message.result;
 		} else {
+			// The sender has yielded and returned to this method. The message
+			// add was successful, so it's time to resume. In this case, a value
+			// was not returned.
+			System.out.println("YIELDING SYNCH: " + method);
 			SyncMessage message = (SyncMessage) sender.getObject(2);
 			boolean added = addMessage(message);
 
@@ -255,6 +255,7 @@ public final class Actor extends Continuation implements Runnable {
 
 	@Override
 	public void run() {
+						
 		Message message;
 		synchronized (mailMonitor) {
 			message = currentMessage;
@@ -306,6 +307,8 @@ public final class Actor extends Continuation implements Runnable {
 			}
 
 			if (!this.isYielded()) {
+				System.out.println("ACTOR COMPLETED: " + this);
+				
 				pool.taskCompleted();
 				
 				synchronized (mailMonitor) {
@@ -339,6 +342,7 @@ public final class Actor extends Continuation implements Runnable {
 	 * same time.
 	 */
 	private void schedule() {
+		
 		// This is where the resume race condition needs to be handled. The
 		// synchronization prevents this code from running alongside the block in
 		// the run method: see the comment there.
@@ -346,7 +350,7 @@ public final class Actor extends Continuation implements Runnable {
 
 			// If a schedule is requested while the actor is unwinding its call stack
 			// then this will cause the schedule to happen once the unwind is done.
-			if (!isReadyToResume) {
+			if (!isReadyToResume) {				
 				shouldResumeImmediately = true;
 				return;
 			}
@@ -356,6 +360,7 @@ public final class Actor extends Continuation implements Runnable {
 		// Schedule is successful, so restore these to default values.
 		isReadyToResume = shouldResumeImmediately = false;
 
+		System.out.println("GOT HERE");
 		pool.run(this);
 	}
 

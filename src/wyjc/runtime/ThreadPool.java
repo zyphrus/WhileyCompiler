@@ -41,7 +41,7 @@ public final class ThreadPool {
 	// The thread pool that tasks will be distributed across.
 	private ExecutorService pool;
 	
-	private int taskCount = 0;
+	private volatile int taskCount = 0;
 	
 	private int threadCount;
 	
@@ -92,7 +92,7 @@ public final class ThreadPool {
 	 */
 	public void run(Actor actor) {
 		synchronized (this) {
-			System.out.println("UP (" + taskCount + ")");
+			System.out.println("UP (" + taskCount + ") ");
 			taskCount += 1;
 		}
 		
