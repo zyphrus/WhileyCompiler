@@ -83,11 +83,14 @@ public final class Actor extends Continuation {
 	 * Send a message asynchronously to this actor. If the mailbox is full, then
 	 * this will in fact block.
 	 * 
-	 * @param sender The sender of this message
-	 * @param method The method to call when running the message
-	 * @param arguments The arguments to pass to the method
+	 * @param from
+	 *            The sender of this message
+	 * @param method
+	 *            The method to call when running the message
+	 * @param arguments
+	 *            The arguments to pass to the method
 	 */
-	public void sendAsync(Actor sender, Method method, Object[] arguments) {
+	public void sendAsync(Actor from, Method method, Object[] arguments) {
 		System.out.println("ASYNC SEND: " + method);		
 		arguments[0] = this;
 		mailbox.add(new Message(method, arguments));	
@@ -98,55 +101,61 @@ public final class Actor extends Continuation {
 	 * Send a message synchronously to this actor. This will block the sender
 	 * until the message is received, and a return value generated.
 	 * 
-	 * @param sender The sender of this message
-	 * @param method The method to call when running the message
-	 * @param arguments The arguments to pass to the method
+	 * @param from
+	 *            The sender of this message
+	 * @param method
+	 *            The method to call when running the message
+	 * @param arguments
+	 *            The arguments to pass to the method
 	 * 
-	 * @throws Throwable The method call may fail for any reason
+	 * @throws Throwable
+	 *             The method call may fail for any reason
 	 */
-	public Object sendSync(Actor sender, Method method, Object[] arguments) {
-		System.out.println("SYNC SEND: " + method);
+	public Object sendSync(Actor from, Method method, Object[] arguments) {
+		System.out.println("ACTOR: " + this + " SYNC SEND: " + method + " STATUS: " + status());
 		
-		if (sender.status() == Continuation.RUNNING) {
+		// 
+		if (from.status() == Continuation.RUNNING) {
 			// This is the first time this method is entered for this message.
 			// Setup and add the message as normal.
 			arguments[0] = this;
-			SyncMessage message = new SyncMessage(sender, method, arguments);
+			SyncMessage message = new SyncMessage(from, method, arguments);
 			// block sender and prep it to receive result
-			sender.block(0);
-			sender.set(1, message);
+			from.block(0);
+			from.set(1, message);
 			// add message
-			mailbox.add(message);			
+			mailbox.add(message);		
+			if(status() == READY) { schedule(); }
 			return null;
 		} else {
 			// The sender has yielded and returned to this method. Attempt to
 			// add the saved message again.
-			SyncMessage message = (SyncMessage) sender.getObject(1);
+			SyncMessage message = (SyncMessage) from.getObject(1);
+			restored();
 			return message.result;
 		}
 	}
 
 	public final void go() {
 		// this method is hand optimised.
-		System.out.println("ACTOR ENTERS RUN: " + this);
+		System.out.println("ACTOR (" + this + ") ENTERS GO");
 		Message message;
 		
 		if(status() == Continuation.RESUMING) {
-			System.out.println("ACTOR ATTEMPTING RESUME: " + this);
+			System.out.println("ACTOR (" + this + ") RESUMING");
 			message = (Message) this.getObject(0);
 			this.restored();
-			dispatch(message);
 		} else {
 			message = mailbox.poll();
 		}
 		
 		while (message != null) {
-			System.out.println("ACTOR DISPATCHES: " + this);
+			System.out.println("ACTOR (" + this + ") DISPATCHES");
 			dispatch(message);
 			if (status() != Continuation.RUNNING) {
 				this.unwind(0);
 				this.set(0, message);
-				System.out.println("ACTOR YIELDING FROM RUN: " + this);
+				System.out.println("ACTOR (" + this + ") UNWINDING FROM GO");
 				// indicates we're yielding
 				return;
 			} else if (message instanceof SyncMessage) {
@@ -155,7 +164,7 @@ public final class Actor extends Continuation {
 			}
 			message = mailbox.poll();			
 		}
-		System.out.println("ACTOR EXITS RUN: " + this);
+		System.out.println("ACTOR (" + this + ") EXITS RUN");
 	}
 	
 	/**

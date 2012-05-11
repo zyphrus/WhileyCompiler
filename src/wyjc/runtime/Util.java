@@ -1032,6 +1032,7 @@ public class Util {
 	public static Record newSystemConsole(String[] args, Scheduler pool) {
 		// Not sure what the default value should be yet!!!
 		Actor sysout = new Actor("sysout", pool);
+		sysout.start();
 		Record data = new Record();
 		data.put("out", sysout);		
 		data.put("args", fromStringList(args));

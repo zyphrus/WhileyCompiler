@@ -121,12 +121,13 @@ public class ContinuationRewriting {
 					i = addResume(bytecodes, i - 1, location, frame, ignores) + 1;
 
 					bytecodes.add(i++, new Load(0, CONTINUATION));
+					bytecodes.add(i++, new Load(0, CONTINUATION)); // naughty
 
 					// Because we're resuming, the arguments don't actually matter. The
 					// analysis on the other end of the method will put the local
 					// variables into the right place.
 					List<JvmType> paramTypes = invoke.type.parameterTypes();
-					for (int j = 0; j < paramTypes.size(); ++j) {
+					for (int j = 1; j < paramTypes.size(); ++j) {
 						bytecodes.add(i++, addNullValue(paramTypes.get(j)));
 					}
 					
@@ -136,7 +137,7 @@ public class ContinuationRewriting {
 					// Now the method has been invoked, this method needs to check if
 					// it caused the actor to yield.
 					bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
-					bytecodes.add(++i, new Invoke(CONTINUATION, "isYielding",
+					bytecodes.add(++i, new Invoke(CONTINUATION, "isUnwinding",
 							new Function(T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
@@ -200,7 +201,7 @@ public class ContinuationRewriting {
 		bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 		bytecodes.add(++i, new LoadConst(location));
-		bytecodes.add(++i, new Invoke(CONTINUATION, "yield", new Function(
+		bytecodes.add(++i, new Invoke(CONTINUATION, "unwind", new Function(
 				T_VOID, T_INT), Bytecode.VIRTUAL));
 
 		// TODO: incorporate liveness information here so that we don't store

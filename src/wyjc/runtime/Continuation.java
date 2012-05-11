@@ -76,13 +76,13 @@ public abstract class Continuation implements Runnable {
 	 * A continuation is in the YIELDING_TO_BLOCK state if it has been blocked
 	 * by something and is currently unwinding the stack.
 	 */
-	public static final byte YIELDING_TO_BLOCK = 5;
+	public static final byte UNWINDING_TO_BLOCK = 5;
 
 	/**
 	 * A continuation is in the YIELDING_TO_READY state if it has been yielded
 	 * but is now ready to resume.
 	 */
-	public static final byte YIELDING_TO_READY = 6;
+	public static final byte UNWINDING_TO_READY = 6;
 	
 	// ========================================================================
 	// Private State
@@ -132,8 +132,8 @@ public abstract class Continuation implements Runnable {
 		return status;
 	}
 
-	public boolean isYielding() {
-		return status >= YIELDING_TO_BLOCK;
+	public boolean isUnwinding() {
+		return status >= UNWINDING_TO_BLOCK;
 	}
 	
 	/**
@@ -165,8 +165,9 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void yield(int location) {
+		System.out.println("CONTINUATION (" + this + ") UNWINDING TO YIELD");
 		state.push(current = new State(location));
-		status = YIELDING_TO_READY;
+		status = UNWINDING_TO_READY;
 	}
 
 	/**
@@ -179,8 +180,9 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void block(int location) {
+		System.out.println("CONTINUATION (" + this + ") UNWINDING TO BLOCK");
 		state.push(current = new State(location));
-		status = YIELDING_TO_BLOCK;
+		status = UNWINDING_TO_BLOCK;
 	}
 
 	/**
@@ -196,6 +198,7 @@ public abstract class Continuation implements Runnable {
 	 * move the continuation into the READY state.
 	 */
 	public void schedule() {
+		System.out.println("CONTINUATION (" + this + ") SCHEDULED");
 		status = READY;
 		pool.schedule(this);
 	}
@@ -210,6 +213,7 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void unwind(int location) {
+		System.out.println("CONTINUATION (" + this + ") UNWINDS");
 		state.push(current = new State(location));		
 	}
 
@@ -230,21 +234,26 @@ public abstract class Continuation implements Runnable {
 	}	
 	
 	public final void run() {
+		System.out.println("CONTINUATION (" + this + ") EXECUTING");
+		
 		status = state.isEmpty() ? RUNNING : RESUMING;
-
+		
 		go();
 
 		switch (status) {
-		case YIELDING_TO_BLOCK:
+		case UNWINDING_TO_BLOCK:
+			System.out.println("CONTINUATION (" + this + ") BLOCKED");
 			// indicates the continuation is blocked waiting for a schedule.
 			status = BLOCKED;
 			break;
-		case YIELDING_TO_READY:
+		case UNWINDING_TO_READY:
+			System.out.println("CONTINUATION (" + this + ") YIELDED");
 			// indicates the continuation voluntarily released control.
 			status = READY;
 			pool.schedule(this);
 			break;
 		case RUNNING:
+			System.out.println("CONTINUATION (" + this + ") TERMINATED");
 			// indicates the continuation has just finished.
 			status = TERMINATED;
 			pool.completed(this);
@@ -281,7 +290,6 @@ public abstract class Continuation implements Runnable {
 	}
 
 	public void set(int index, float value) {
-		System.out.println("SETTING: " + index + " : " + value);
 		current.localMap.put(index, value);
 	}
 
@@ -310,7 +318,6 @@ public abstract class Continuation implements Runnable {
 	}
 
 	public float getFloat(int index) {
-		System.out.println("GETTING: " + index);
 		return (Float) current.localMap.get(index);
 	}
 
