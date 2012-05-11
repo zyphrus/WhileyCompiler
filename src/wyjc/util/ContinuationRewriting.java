@@ -68,7 +68,8 @@ import wyjvm.lang.JvmTypes;
  */
 public class ContinuationRewriting {
  
-	private static final Clazz CONTINUATION = new Clazz("wyjc.runtime", "Continuation");
+	// FIXME: should be wyjc.runtime.Continuation
+	private static final Clazz CONTINUATION = new Clazz("wyjc.runtime", "Actor");
 
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
