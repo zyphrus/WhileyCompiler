@@ -41,7 +41,7 @@ import java.util.Stack;
  * @author Timothy Jones
  */
 public abstract class Continuation implements Runnable {
-
+	public static final boolean debug = false;
 	/**
 	 * A continuation is in the READY state if it is not currently running, but
 	 * is ready to run. In such case, it will be queued awaiting allocation to a
@@ -165,7 +165,7 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void yield(int location) {
-		System.out.println("CONTINUATION (" + this + ") UNWINDING TO YIELD");
+		if(debug) System.out.println("CONTINUATION (" + this + ") UNWINDING TO YIELD");
 		state.push(current = new State(location));
 		status = UNWINDING_TO_READY;
 	}
@@ -180,7 +180,7 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void block(int location) {
-		System.out.println("CONTINUATION (" + this + ") UNWINDING TO BLOCK");
+		if(debug) System.out.println("CONTINUATION (" + this + ") UNWINDING TO BLOCK");
 		state.push(current = new State(location));
 		status = UNWINDING_TO_BLOCK;
 	}
@@ -198,7 +198,7 @@ public abstract class Continuation implements Runnable {
 	 * move the continuation into the READY state.
 	 */
 	public void schedule() {
-		System.out.println("CONTINUATION (" + this + ") SCHEDULED");
+		if(debug) System.out.println("CONTINUATION (" + this + ") SCHEDULED");
 		status = READY;
 		pool.schedule(this);
 	}
@@ -213,7 +213,7 @@ public abstract class Continuation implements Runnable {
 	 *            The location of the computation in the method
 	 */
 	public void unwind(int location) {
-		System.out.println("CONTINUATION (" + this + ") UNWINDS");
+		if(debug) System.out.println("CONTINUATION (" + this + ") UNWINDS");
 		state.push(current = new State(location));		
 	}
 
@@ -234,7 +234,7 @@ public abstract class Continuation implements Runnable {
 	}	
 	
 	public final void run() {
-		System.out.println("CONTINUATION (" + this + ") EXECUTING");
+		if(debug) System.out.println("CONTINUATION (" + this + ") EXECUTING");
 		
 		status = state.isEmpty() ? RUNNING : RESUMING;
 		
@@ -242,18 +242,18 @@ public abstract class Continuation implements Runnable {
 
 		switch (status) {
 		case UNWINDING_TO_BLOCK:
-			System.out.println("CONTINUATION (" + this + ") BLOCKED");
+			if(debug) System.out.println("CONTINUATION (" + this + ") BLOCKED");
 			// indicates the continuation is blocked waiting for a schedule.
 			status = BLOCKED;
 			break;
 		case UNWINDING_TO_READY:
-			System.out.println("CONTINUATION (" + this + ") YIELDED");
+			if(debug) System.out.println("CONTINUATION (" + this + ") YIELDED");
 			// indicates the continuation voluntarily released control.
 			status = READY;
 			pool.schedule(this);
 			break;
 		case RUNNING:
-			System.out.println("CONTINUATION (" + this + ") TERMINATED");
+			if(debug) System.out.println("CONTINUATION (" + this + ") TERMINATED");
 			// indicates the continuation has just finished.
 			status = TERMINATED;
 			pool.completed(this);

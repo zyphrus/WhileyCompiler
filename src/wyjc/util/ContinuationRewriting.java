@@ -225,12 +225,12 @@ public class ContinuationRewriting {
 		}
 		
 		int length = frame.types.length;
-		System.out.println("FRAME: " + Arrays.toString(frame.types) + " : " + frame.numLocals);
+		// System.out.println("FRAME: " + Arrays.toString(frame.types) + " : " + frame.numLocals);
 		for (int j = (length - ignores - 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 			bytecodes.add(++i, new Swap());
-			System.out.println("SAVING: " + type);
+			// System.out.println("SAVING: " + type);
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
@@ -261,7 +261,7 @@ public class ContinuationRewriting {
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 			String name;
-			System.out.println("RESTORING: " + type);
+			//System.out.println("RESTORING: " + type);
 			if (type instanceof Reference) {
 				name = "popObject";
 				methodType = JAVA_LANG_OBJECT;

@@ -88,7 +88,6 @@ public final class Scheduler {
 		if(pool == null) {
 			// the pool is created lazily to ensure that it does not prevent the
 			// JVM from shutting down when all tasks are completed. 
-			System.out.println("SCHEDULER CREATING THREADPOOL WITH " + threadCount + " THREADS.");
 			pool = Executors.newFixedThreadPool(threadCount);
 		}
 		pool.execute(continuation);
@@ -100,7 +99,6 @@ public final class Scheduler {
 	 * this method. 
 	 */
 	public synchronized void start(Continuation continuation) {
-		System.out.println("SCHEDULER STARTIED CONTINUATION (" + continuation + ")");
 		continuationCount++;
 	}
 	
@@ -110,12 +108,10 @@ public final class Scheduler {
 	 * @param continuation
 	 */
 	public synchronized void completed(Continuation continuation) {
-		System.out.println("SCHEDULER COMPLETED CONTINUATION (" + continuation +")");
 		continuationCount--;
 		// TODO: currently, the continuation count never goes below 1. The
 		// reason for this is that the continuation representing the
 		if(continuationCount == 0) {
-			System.out.println("SHUTTING DOWN THREADPOOL.");
 			pool.shutdown();
 			pool = null;
 		}

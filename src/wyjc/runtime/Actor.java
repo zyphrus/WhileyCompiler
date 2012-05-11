@@ -91,7 +91,7 @@ public final class Actor extends Continuation {
 	 *            The arguments to pass to the method
 	 */
 	public void sendAsync(Actor from, Method method, Object[] arguments) {
-		System.out.println("ASYNC SEND: " + method);		
+		if(debug) System.out.println("ASYNC SEND: " + method);		
 		arguments[0] = this;
 		mailbox.add(new Message(method, arguments));	
 		schedule();
@@ -112,7 +112,7 @@ public final class Actor extends Continuation {
 	 *             The method call may fail for any reason
 	 */
 	public Object sendSync(Actor from, Method method, Object[] arguments) {
-		System.out.println("ACTOR: " + this + " SYNC SEND: " + method + " STATUS: " + status());
+		if(debug) System.out.println("ACTOR: " + this + " SYNC SEND: " + method + " STATUS: " + status());
 		
 		// 
 		if (from.status() == Continuation.RUNNING) {
@@ -138,11 +138,11 @@ public final class Actor extends Continuation {
 
 	public final void go() {
 		// this method is hand optimised.
-		System.out.println("ACTOR (" + this + ") ENTERS GO");
+		if(debug) System.out.println("ACTOR (" + this + ") ENTERS GO");
 		Message message;
 		
 		if(status() == Continuation.RESUMING) {
-			System.out.println("ACTOR (" + this + ") RESUMING");
+			if(debug) System.out.println("ACTOR (" + this + ") RESUMING");
 			message = (Message) this.getObject(0);
 			this.restored();
 		} else {
@@ -150,12 +150,12 @@ public final class Actor extends Continuation {
 		}
 		
 		while (message != null) {
-			System.out.println("ACTOR (" + this + ") DISPATCHES");
+			if(debug) System.out.println("ACTOR (" + this + ") DISPATCHES");
 			dispatch(message);
 			if (status() != Continuation.RUNNING) {
 				this.unwind(0);
 				this.set(0, message);
-				System.out.println("ACTOR (" + this + ") UNWINDING FROM GO");
+				if(debug) System.out.println("ACTOR (" + this + ") UNWINDING FROM GO");
 				// indicates we're yielding
 				return;
 			} else if (message instanceof SyncMessage) {
@@ -164,7 +164,7 @@ public final class Actor extends Continuation {
 			}
 			message = mailbox.poll();			
 		}
-		System.out.println("ACTOR (" + this + ") EXITS RUN");
+		if(debug) System.out.println("ACTOR (" + this + ") EXITS RUN");
 	}
 	
 	/**
