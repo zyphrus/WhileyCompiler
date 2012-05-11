@@ -312,7 +312,7 @@ public class ContinuationRewriting {
 		}
 
 		bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
-		bytecodes.add(++i, new Invoke(CONTINUATION, "unyield", new Function(T_VOID),
+		bytecodes.add(++i, new Invoke(CONTINUATION, "restored", new Function(T_VOID),
 				Bytecode.VIRTUAL));
 
 		return i;
