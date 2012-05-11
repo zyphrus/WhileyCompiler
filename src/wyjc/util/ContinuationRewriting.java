@@ -67,8 +67,8 @@ import wyjvm.lang.JvmTypes;
  * @author Timothy Jones
  */
 public class ContinuationRewriting {
-
-	private static final Clazz ACTOR = new Clazz("wyjc.runtime", "Actor");
+ 
+	private static final Clazz CONTINUATION = new Clazz("wyjc.runtime", "Continuation");
 
 	public void apply(ClassFile classfile) {
 		for (Method method : classfile.methods()) {
@@ -122,14 +122,14 @@ public class ContinuationRewriting {
 					// FIXME This is hacked inside of the Actor class to work.
 					// There should be a general solution to this problem.
 					if (invoke.mode == Bytecode.VIRTUAL) {
-						bytecodes.add(i++, new Load(0, ACTOR));
+						bytecodes.add(i++, new Load(0, CONTINUATION));
 						bytecodes.add(i++, new LoadConst(0));
-						bytecodes.add(i++, new Invoke(ACTOR, "getObject", new Function(
+						bytecodes.add(i++, new Invoke(CONTINUATION, "getObject", new Function(
 								JAVA_LANG_OBJECT, T_INT), Bytecode.VIRTUAL));
-						bytecodes.add(i++, new CheckCast(ACTOR));
+						bytecodes.add(i++, new CheckCast(CONTINUATION));
 					}
 
-					bytecodes.add(i++, new Load(0, ACTOR));
+					bytecodes.add(i++, new Load(0, CONTINUATION));
 
 					// Because we're resuming, the arguments don't actually matter. The
 					// analysis on the other end of the method will put the local
@@ -143,8 +143,8 @@ public class ContinuationRewriting {
 
 					// Now the method has been invoked, this method needs to check if
 					// it caused the actor to yield.
-					bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
-					bytecodes.add(++i, new Invoke(ACTOR, "isYielded",
+					bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
+					bytecodes.add(++i, new Invoke(CONTINUATION, "isYielding",
 							new Function(T_BOOL), Bytecode.VIRTUAL));
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
@@ -182,8 +182,8 @@ public class ContinuationRewriting {
 		if (location > 0) {
 			int i = -1;
 
-			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
-			bytecodes.add(++i, new Invoke(ACTOR, "getCurrentStateLocation",
+			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
+			bytecodes.add(++i, new Invoke(CONTINUATION, "location",
 					new Function(T_INT), Bytecode.VIRTUAL));
 
 			List<Pair<Integer, String>> cases =
@@ -204,10 +204,10 @@ public class ContinuationRewriting {
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
 			int location, StackMapTable.Frame frame, boolean ignoreReturn) {
-		bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+		bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 		bytecodes.add(++i, new LoadConst(location));
-		bytecodes.add(++i, new Invoke(ACTOR, "yield", new Function(T_VOID, T_INT),
+		bytecodes.add(++i, new Invoke(CONTINUATION, "yield", new Function(T_VOID, T_INT),
 				Bytecode.VIRTUAL));
 
 		// TODO: incorporate liveness information here so that we don't store
@@ -217,7 +217,7 @@ public class ContinuationRewriting {
 		for (int var = 1; var != frame.numLocals; var++) {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
-				bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+				bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 				bytecodes.add(++i, new LoadConst(var));
 				bytecodes.add(++i, new Load(var, type));
 
@@ -225,7 +225,7 @@ public class ContinuationRewriting {
 					type = JAVA_LANG_OBJECT;
 				}
 
-				bytecodes.add(++i, new Invoke(ACTOR, "set", new Function(T_VOID, T_INT,
+				bytecodes.add(++i, new Invoke(CONTINUATION, "set", new Function(T_VOID, T_INT,
 						type), Bytecode.VIRTUAL));
 			}
 		}
@@ -234,14 +234,14 @@ public class ContinuationRewriting {
 
 		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
-			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 			bytecodes.add(++i, new Swap());
 
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
 
-			bytecodes.add(++i, new Invoke(ACTOR, "push", new Function(T_VOID, type),
+			bytecodes.add(++i, new Invoke(CONTINUATION, "push", new Function(T_VOID, type),
 					Bytecode.VIRTUAL));
 		}
 
@@ -265,7 +265,7 @@ public class ContinuationRewriting {
 		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			JvmType methodType = type;
-			bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 			String name;
 			if (type instanceof Reference) {
@@ -277,7 +277,7 @@ public class ContinuationRewriting {
 				name = "pop" + type.getClass().getSimpleName();
 			}
 
-			bytecodes.add(++i, new Invoke(ACTOR, name, new Function(methodType),
+			bytecodes.add(++i, new Invoke(CONTINUATION, name, new Function(methodType),
 					Bytecode.VIRTUAL));
 			if (type instanceof Reference) {
 				bytecodes.add(++i, new CheckCast(type));
@@ -288,7 +288,7 @@ public class ContinuationRewriting {
 			JvmType type = frame.types[var];
 			if (!type.equals(JvmTypes.T_VOID)) {
 				JvmType methodType = type;
-				bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
+				bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 				bytecodes.add(++i, new LoadConst(var));
 
 				String name;
@@ -301,7 +301,7 @@ public class ContinuationRewriting {
 					name = "get" + type.getClass().getSimpleName();
 				}
 
-				bytecodes.add(++i, new Invoke(ACTOR, name, new Function(methodType,
+				bytecodes.add(++i, new Invoke(CONTINUATION, name, new Function(methodType,
 						T_INT), Bytecode.VIRTUAL));
 				if (type instanceof Reference) {
 					bytecodes.add(++i, new CheckCast(type));
@@ -310,8 +310,8 @@ public class ContinuationRewriting {
 			}
 		}
 
-		bytecodes.add(++i, new Bytecode.Load(0, ACTOR));
-		bytecodes.add(++i, new Invoke(ACTOR, "unyield", new Function(T_VOID),
+		bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
+		bytecodes.add(++i, new Invoke(CONTINUATION, "unyield", new Function(T_VOID),
 				Bytecode.VIRTUAL));
 
 		return i;
@@ -357,7 +357,7 @@ public class ContinuationRewriting {
 
 		List<JvmType> params = invoke.type.parameterTypes();
 		
-		return params.size() > 0 && params.get(0).equals(ACTOR);
+		return params.size() > 0 && params.get(0).equals(CONTINUATION);
 	}
 
 }

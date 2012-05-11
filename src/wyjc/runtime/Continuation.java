@@ -62,28 +62,28 @@ public abstract class Continuation implements Runnable {
 	public static final byte BLOCKED = 2;
 
 	/**
+	 * A continuation is in the RESUMING state if it has been allocated to a
+	 * thread and is currently restoring the stack.
+	 */
+	public static final byte RESUMING = 3;
+	
+	/**
+	 * A continuation is in the TERMINATED state it is has completed execution.
+	 */
+	public static final byte TERMINATED = 4;
+	
+	/**
 	 * A continuation is in the YIELDING_TO_BLOCK state if it has been blocked
 	 * by something and is currently unwinding the stack.
 	 */
-	public static final byte YIELDING_TO_BLOCK = 3;
+	public static final byte YIELDING_TO_BLOCK = 5;
 
 	/**
 	 * A continuation is in the YIELDING_TO_READY state if it has been yielded
 	 * but is now ready to resume.
 	 */
-	public static final byte YIELDING_TO_READY = 4;
-
-	/**
-	 * A continuation is in the RESUMING state if it has been allocated to a
-	 * thread and is currently restoring the stack.
-	 */
-	public static final byte RESUMING = 5;
+	public static final byte YIELDING_TO_READY = 6;
 	
-	/**
-	 * A continuation is in the TERMINATED state it is has completed execution.
-	 */
-	public static final byte TERMINATED = 6;
-
 	// ========================================================================
 	// Private State
 	// ========================================================================
@@ -132,11 +132,23 @@ public abstract class Continuation implements Runnable {
 		return status;
 	}
 
+	public boolean isYielding() {
+		return status >= YIELDING_TO_BLOCK;
+	}
+	
 	/**
 	 * @return The scheduler used by this actor for concurrency
 	 */
 	public Scheduler getThreadPool() {
 		return pool;
+	}
+	
+	public int location() {
+		if(status != RESUMING) {			
+			return -1;
+		} else {
+			return current.location;
+		}
 	}
 	
 	// ========================================================================
