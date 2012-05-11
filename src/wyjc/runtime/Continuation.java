@@ -172,7 +172,15 @@ public abstract class Continuation implements Runnable {
 	}
 
 	/**
-	 * Unblock a given continuation and schedule it for execution. This will
+	 * Start the continuation and prepare it to be scheduled for execution on a
+	 * given thread pool.
+	 */
+	public void start() {
+		pool.start(this);
+	}
+	
+	/**
+	 * Unblock the continuation and schedule it for execution. This will
 	 * move the continuation into the READY state.
 	 */
 	public void schedule() {

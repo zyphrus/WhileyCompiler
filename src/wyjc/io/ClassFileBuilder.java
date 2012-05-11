@@ -234,6 +234,12 @@ public class ClassFileBuilder {
 				Bytecode.SPECIAL));
 		codes.add(new Bytecode.Dup(WHILEYOBJECT));
 		
+		// Start the actor
+		codes.add(new Bytecode.Dup(WHILEYOBJECT));
+		codes.add(new Bytecode.Invoke(WHILEYOBJECT, "start",
+				new JvmType.Function(T_VOID),
+				Bytecode.VIRTUAL));
+		
 		// Load the main method.
 		codes.add(new Bytecode.LoadConst(owner.toString()));
 		codes.add(new Bytecode.LoadConst(nameMangle("main",
@@ -1411,6 +1417,10 @@ public class ClassFileBuilder {
 		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "<init>",
 				new JvmType.Function(T_VOID, JAVA_LANG_OBJECT, WHILEYSCHEDULER),
 				Bytecode.SPECIAL));
+		bytecodes.add(new Bytecode.Dup(WHILEYOBJECT));
+		bytecodes.add(new Bytecode.Invoke(WHILEYOBJECT, "start",
+				new JvmType.Function(T_VOID),
+				Bytecode.VIRTUAL));
 	}
 	
 	public void translate(Code.Dereference c, int freeSlot,

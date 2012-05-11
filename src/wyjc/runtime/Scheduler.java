@@ -98,13 +98,11 @@ public final class Scheduler {
 	/**
 	 * Start the execution of a given continuation in this pool. Before a
 	 * continuation can be scheduled, it must be officially started by calling
-	 * this method. This method will immediately schedule the continuation for
-	 * execution.
+	 * this method. 
 	 */
 	public synchronized void start(Continuation continuation) {
 		System.out.println("STARTING CONTINUATION: " + continuation);
 		continuationCount++;
-		schedule(continuation);
 	}
 	
 	/**
@@ -115,6 +113,8 @@ public final class Scheduler {
 	public synchronized void completed(Continuation continuation) {
 		System.out.println("COMPLETED CONTINUATION: " + continuation);
 		continuationCount--;
+		// TODO: currently, the continuation count never goes below 1. The
+		// reason for this is that the continuation representing the
 		if(continuationCount == 0) {
 			System.out.println("SHUTTING DOWN THREADPOOL.");
 			pool.shutdown();

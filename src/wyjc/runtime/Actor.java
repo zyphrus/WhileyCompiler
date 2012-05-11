@@ -130,7 +130,7 @@ public final class Actor extends Continuation {
 		switch (status()) {
 		case Continuation.RUNNING:
 			// FIXME: could be more efficient
-			while (mailbox.isEmpty()) {
+			while (!mailbox.isEmpty()) {
 				Message m = mailbox.poll();
 				System.out.println("ACTOR DISPATCHES: " + this);
 				dispatch(m);
