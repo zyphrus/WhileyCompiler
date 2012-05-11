@@ -31,8 +31,11 @@ import java.util.Map;
 import java.util.Stack;
 
 /**
- * A helper class for the actor hierarchy that involves the yielding of thread
- * control and saving of local state.
+ * A lightweight thread or fibre which sits on top of Java's Thread primitive.
+ * The essential idea is to have a fixed number of Java threads which execute a
+ * potentially much larger of continuations. Thus, the number of continuations
+ * which can be created is limited only by the amount of available RAM, rather
+ * than the number system-level proceses which can be created.
  * 
  * @author David J. Pearce
  * @author Timothy Jones
@@ -41,7 +44,8 @@ public abstract class Continuation implements Runnable {
 
 	/**
 	 * A continuation is in the READY state if it is not currently running, but
-	 * is ready to run.
+	 * is ready to run. In such case, it will be queued awaiting allocation to a
+	 * thread.
 	 */
 	public static final byte READY = 0;
 
@@ -80,6 +84,10 @@ public abstract class Continuation implements Runnable {
 	 */
 	public static final byte TERMINATED = 6;
 
+	// ========================================================================
+	// Private State
+	// ========================================================================
+	
 	/**
 	 * ThreadPool to which this continuation is allocated.
 	 */
@@ -100,6 +108,10 @@ public abstract class Continuation implements Runnable {
 	 */
 	private volatile byte status = READY;
 
+	// ========================================================================
+	// Constructor
+	// ========================================================================
+		
 	/**
 	 * Construct a continuation in a given thread pool
 	 * 
@@ -109,6 +121,10 @@ public abstract class Continuation implements Runnable {
 		this.pool = pool;
 	}
 
+	// ========================================================================
+	// Accessors
+	// ========================================================================
+			
 	/**
 	 * Get the status of this continuation.
 	 */
@@ -123,10 +139,15 @@ public abstract class Continuation implements Runnable {
 		return pool;
 	}
 	
+	// ========================================================================
+	// Mutators
+	// ========================================================================
+			
 	/**
-	 * Yield the continuation at a given bytecode location. Note that this only
-	 * begins the process, since the state of the locals and stack must be
-	 * stored manually. Furthermore, the stack must be unwound.
+	 * Yield the continuation at a given bytecode location. This will move the
+	 * thread into the YIELDING_TO_READY state. Note that this only begins the
+	 * process, since the state of the locals and stack must be stored manually.
+	 * Furthermore, the stack must be unwound.
 	 * 
 	 * @param location
 	 *            The location of the computation in the method
@@ -137,9 +158,10 @@ public abstract class Continuation implements Runnable {
 	}
 
 	/**
-	 * Block the continuation at a given bytecode location. Note that this only
-	 * begins the process, since the state of the locals and stack must be
-	 * stored manually. Furthermore, the stack must be unwound.
+	 * Block the continuation at a given bytecode location. This will move the
+	 * thread into the YIELDING_TO_BLOCK state. Note that this only begins the
+	 * process, since the state of the locals and stack must be stored manually.
+	 * Furthermore, the stack must be unwound.
 	 * 
 	 * @param location
 	 *            The location of the computation in the method
@@ -150,9 +172,11 @@ public abstract class Continuation implements Runnable {
 	}
 
 	/**
-	 * Unblock a given continuation.
+	 * Unblock a given continuation and schedule it for execution. This will
+	 * move the continuation into the READY state.
 	 */
 	public void schedule() {
+		status = READY;
 		pool.schedule(this);
 	}
 	
@@ -170,31 +194,25 @@ public abstract class Continuation implements Runnable {
 	}
 
 	/**
-	 * Indicates the thread has finished restoring the current stack frame.
+	 * Indicates the current stack frame has now been fully restored by the
+	 * allocated thread. In the case that no more stack frames exist, then the
+	 * current continuation is considered to be fully resumed, and is now
+	 * executing. This will move the continuation into the RUNNING state.
 	 */
 	public void restored() {
 		current = state.peek();
 		state.pop();		
-	}	
-	
-	/**
-	 * Pops a local state object off of the stack, moving the get and pop and
-	 * pop methods onto the next local values.
-	 */
-	public void resume() {
-		status = RUNNING;
-	}
-
-	public final void run() {
 		if(state.isEmpty()) {
 			status = RUNNING;
-		} else { 
-			status = RESUMING;
 		}
-		
+	}	
+	
+	public final void run() {
+		status = state.isEmpty() ? RUNNING : RESUMING;
+
 		go();
-		
-		switch(status) {
+
+		switch (status) {
 		case YIELDING_TO_BLOCK:
 			// indicates the continuation is blocked waiting for a schedule.
 			status = BLOCKED;
@@ -215,6 +233,10 @@ public abstract class Continuation implements Runnable {
 	}
 	
 	public abstract void go();
+	
+	// ========================================================================
+	// STATE ACCESSORS
+	// ========================================================================
 	
 	public void set(int index, Object value) {
 		current.localMap.put(index, value);
