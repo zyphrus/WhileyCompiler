@@ -89,7 +89,8 @@ public final class Actor extends Continuation {
 	public void sendAsync(Actor sender, Method method, Object[] arguments) {
 		System.out.println("ASYNC SEND: " + method);		
 		arguments[0] = this;
-		mailbox.add(new Message(method, arguments));		
+		mailbox.add(new Message(method, arguments));	
+		schedule();
 	}
 
 	/**
@@ -124,27 +125,42 @@ public final class Actor extends Continuation {
 		}
 	}
 
-	public final void run() {
+	public final void go() {
+		System.out.println("ACTOR ENTERS RUN: " + this);
 		switch (status()) {
 		case Continuation.RUNNING:
 			// FIXME: could be more efficient
 			while (mailbox.isEmpty()) {
 				Message m = mailbox.poll();
+				System.out.println("ACTOR DISPATCHES: " + this);
 				dispatch(m);
 				if (status() != Continuation.RUNNING) {
+					System.out.println("ACTOR EXITS RUN: " + this);
 					// indicates we're yielding
 					return;
-				} else if(m instanceof SyncMessage){
+				} else if (m instanceof SyncMessage) {
 					SyncMessage sm = (SyncMessage) m;
 					sm.sender.schedule(); // notify sender
 				}
 			}
+			System.out.println("ACTOR FINISHED MESSAGE LOOP: " + this);
 			break;
 		case Continuation.RESUMING:
 			// what to do here?
+			System.out.println("ACTOR ATTEMPTING RESUME: " + this);
+			break;
+		default:
+			System.out.println("ACTOR UNKNOWN STATE (" + status() + "): " + this);
 		}
+		System.out.println("ACTOR EXITS RUN: " + this);
 	}
 	
+	/**
+	 * Dispatch a given message to a given receiver.
+	 * 
+	 * @param message
+	 * @return
+	 */
 	private final Object dispatch(Message message) {
 		try {
 			return message.method.invoke(null, message.arguments);
@@ -164,6 +180,7 @@ public final class Actor extends Continuation {
 		return state + "@" + System.identityHashCode(this);
 	}
 
+	
 	private static class Message {
 		public final Method method;
 		public final Object[] arguments;

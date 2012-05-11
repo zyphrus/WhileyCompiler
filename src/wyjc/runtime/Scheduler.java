@@ -37,21 +37,30 @@ import java.util.concurrent.Executors;
  * @author Timothy Jones
  */
 public final class Scheduler {
+
+	/**
+	 * The number of threads to used in the thread pool
+	 */
+	private final int threadCount;
 	
-	// The thread pool that tasks will be distributed across.
-	private ExecutorService pool;
+	/**
+	 * Responsible for actually managing the scheduling and execution of
+	 * continuations on the thread pool.
+	 */
+	private volatile ExecutorService pool;
 	
-	private volatile int taskCount = 0;
-	
-	private int threadCount;
+	/**
+	 * Maintains a count of the number of active continuations. When this count
+	 * is zero, the pool is automatically shutdown.
+	 */
+	private volatile int continuationCount;
 	
 	/**
 	 * Creates a new scheduler with a cached thread pool, meaning threads will be
 	 * booted up as needed, rather than all at once.
 	 */
 	public Scheduler() {
-		this.threadCount = 0;
-		pool = Executors.newCachedThreadPool();
+		this(Runtime.getRuntime().availableProcessors());
 	}
 	
 	/**
@@ -61,7 +70,6 @@ public final class Scheduler {
 	 */
 	public Scheduler(int threadCount) {
 		this.threadCount = threadCount;
-		pool = Executors.newFixedThreadPool(threadCount);
 	}
 	
 	/**
@@ -72,45 +80,45 @@ public final class Scheduler {
 	}
 	
 	/**
-	 * Shuts the current thread pool down and starts a new one with the given
-	 * number of threads. Performs no operation if the thread count is the same.
-	 * 
-	 * @param threadCount The number of threads to have in the thread pool
-	 */
-	public void setThreadCount(int threadCount) {
-		if (this.threadCount != threadCount) {
-			pool.shutdown();
-			this.threadCount = threadCount;
-			pool = Executors.newFixedThreadPool(threadCount);
-		}
-	}
-	
-	/**
 	 * Schedules the given object to resume as soon as a thread is available.
 	 * 
 	 * @param strand The object to schedule a resume for
 	 */
-	public void schedule(Continuation continuation) {
-		synchronized (this) {
-			System.out.println("UP (" + taskCount + ") ");
-			taskCount += 1;
+	public synchronized void schedule(Continuation continuation) {
+		if(pool == null) {
+			// the pool is created lazily to ensure that it does not prevent the
+			// JVM from shutting down when all tasks are completed. 
+			System.out.println("CREATING THREADPOOL WITH " + threadCount + " THREADS.");
+			pool = Executors.newFixedThreadPool(threadCount);
 		}
-
+		System.out.println("SCHEDULING CONTINUATION: " + continuation);
 		pool.execute(continuation);
 	}
 	
-	protected void taskCompleted() {
-		int count;
-		
-		synchronized (this) {
-			count = taskCount -= 1;
-		}
-		
-		System.out.println("DOWN (" + count + ")");
-		
-		if (count == 0) {			
-			pool.shutdown();
-		}
+	/**
+	 * Start the execution of a given continuation in this pool. Before a
+	 * continuation can be scheduled, it must be officially started by calling
+	 * this method. This method will immediately schedule the continuation for
+	 * execution.
+	 */
+	public synchronized void start(Continuation continuation) {
+		System.out.println("STARTING CONTINUATION: " + continuation);
+		continuationCount++;
+		schedule(continuation);
 	}
 	
+	/**
+	 * Indicates that a continuation has completed
+	 * 
+	 * @param continuation
+	 */
+	public synchronized void completed(Continuation continuation) {
+		System.out.println("COMPLETED CONTINUATION: " + continuation);
+		continuationCount--;
+		if(continuationCount == 0) {
+			System.out.println("SHUTTING DOWN THREADPOOL.");
+			pool.shutdown();
+			pool = null;
+		}
+	}
 }

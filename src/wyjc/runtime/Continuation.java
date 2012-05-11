@@ -74,6 +74,11 @@ public abstract class Continuation implements Runnable {
 	 * thread and is currently restoring the stack.
 	 */
 	public static final byte RESUMING = 5;
+	
+	/**
+	 * A continuation is in the TERMINATED state it is has completed execution.
+	 */
+	public static final byte TERMINATED = 6;
 
 	/**
 	 * ThreadPool to which this continuation is allocated.
@@ -148,7 +153,6 @@ public abstract class Continuation implements Runnable {
 	 * Unblock a given continuation.
 	 */
 	public void schedule() {
-		status = READY;
 		pool.schedule(this);
 	}
 	
@@ -181,6 +185,37 @@ public abstract class Continuation implements Runnable {
 		status = RUNNING;
 	}
 
+	public final void run() {
+		if(state.isEmpty()) {
+			status = RUNNING;
+		} else { 
+			status = RESUMING;
+		}
+		
+		go();
+		
+		switch(status) {
+		case YIELDING_TO_BLOCK:
+			// indicates the continuation is blocked waiting for a schedule.
+			status = BLOCKED;
+			break;
+		case YIELDING_TO_READY:
+			// indicates the continuation voluntarily released control.
+			status = READY;
+			pool.schedule(this);
+			break;
+		case RUNNING:
+			// indicates the continuation has just finished.
+			status = TERMINATED;
+			pool.completed(this);
+			break;
+		default:
+			throw new RuntimeException("Invalid continuation status; " + status);
+		}
+	}
+	
+	public abstract void go();
+	
 	public void set(int index, Object value) {
 		current.localMap.put(index, value);
 	}

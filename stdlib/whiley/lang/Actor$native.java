@@ -33,40 +33,35 @@ import wyjc.runtime.Actor;
 public class Actor$native {
 	
 	public static void yield(Actor self) {
-		if (self.isYielded()) {
-			self.unyield();
-		} else {
-			self.yield(0);
-			self.getThreadPool().run(self);
-		}
+//		if (self.isYielded()) {
+//			self.unyield();
+//		} else {
+//			self.yield(0);
+//			self.getThreadPool().run(self);
+//		}
 	}
 	
 	public static void sleep(Actor self, BigInteger millis) {
-		System.out.println("sleep");
-		if (self.isYielded()) {
-			long time = self.getLong(0);
-			if (System.currentTimeMillis() >= time) {
-				self.unyield();
-			}
-		} else {
-			long time = millis.longValue();
-			
-			if (time <= 0) {
-				return;
-			}
-			
-			self.yield(0);
-			self.getThreadPool().run(self);
-			self.set(0, System.currentTimeMillis() + time);
-		}
+//		System.out.println("sleep");
+//		if (self.isYielded()) {
+//			long time = self.getLong(0);
+//			if (System.currentTimeMillis() >= time) {
+//				self.unyield();
+//			}
+//		} else {
+//			long time = millis.longValue();
+//			
+//			if (time <= 0) {
+//				return;
+//			}
+//			
+//			self.yield(0);
+//			self.getThreadPool().run(self);
+//			self.set(0, System.currentTimeMillis() + time);
+//		}
 	}
 	
 	public static BigInteger getThreadCountUnfiltered(Actor self) {
 		return BigInteger.valueOf(self.getThreadPool().getThreadCount());
 	}
-	
-	public static void setThreadCount(Actor self, BigInteger count) {
-		self.getThreadPool().setThreadCount(count.intValue());
-	}
-	
 }
