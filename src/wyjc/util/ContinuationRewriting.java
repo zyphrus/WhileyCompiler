@@ -32,6 +32,7 @@ import static wyjvm.lang.JvmTypes.T_INT;
 import static wyjvm.lang.JvmTypes.T_VOID;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import wyil.util.Pair;
@@ -92,7 +93,7 @@ public class ContinuationRewriting {
 		StackMapTable stackMap = code.attribute(StackMapTable.class);
 		int location = 0;
 
-		for (int i = 0, old = 0; i < bytecodes.size(); ++i, ++old) {
+		for (int i = 0; i < bytecodes.size(); ++i) {
 			Bytecode bytecode = bytecodes.get(i);
 
 			int original = i;
@@ -101,17 +102,15 @@ public class ContinuationRewriting {
 				Invoke invoke = (Invoke) bytecode;
 
 				if (canYield(invoke)) {
-					// A strand may yield inside another method. If the method returns
-					// and the current strand is yielded, the stack needs to keep
+					// A continuation may yield inside another method. If the method returns
+					// and the current continuation is yielded, the stack needs to keep
 					// yielding, then later resume before the method call so it reenters
 					// the yielded method.
 
-					// TODO Adjust the stack map (like the handlers are).
-					StackMapTable.Frame frame = stackMap.frameAt(old + 1);
+					StackMapTable.Frame frame = stackMap.frameAt(i);
 
-					List<JvmType> pTypes = invoke.type.parameterTypes();
-					int size = pTypes.size();
-					
+					// Ignore return indicates whether or not we need to save
+					// the return value or not. 
 					boolean ignoreReturn = !invoke.type.returnType().equals(T_VOID);
 
 					// If the code flow is arriving here for the first time, it needs to
@@ -119,25 +118,6 @@ public class ContinuationRewriting {
 					// function to right after this goto with the following resume.
 					bytecodes.add(i++, new Goto("invoke" + location));
 					i = addResume(bytecodes, i - 1, location, frame, ignoreReturn) + 1;
-
-					// FIXME This is hacked inside of the Actor class to work.
-					// There should be a general solution to this problem.
-					if (invoke.mode == Bytecode.VIRTUAL) {
-						bytecodes.add(i++, new Load(0, CONTINUATION));
-						bytecodes.add(i++, new LoadConst(0));
-						bytecodes.add(i++, new Invoke(CONTINUATION, "getObject", new Function(
-								JAVA_LANG_OBJECT, T_INT), Bytecode.VIRTUAL));
-						bytecodes.add(i++, new CheckCast(CONTINUATION));
-					}
-
-					bytecodes.add(i++, new Load(0, CONTINUATION));
-
-					// Because we're resuming, the arguments don't actually matter. The
-					// analysis on the other end of the method will put the local
-					// variables into the right place.
-					for (int j = 1; j < size; ++j) {
-						bytecodes.add(i++, addNullValue(pTypes.get(j)));
-					}
 
 					// This label is just for the first-time skip commented above.
 					bytecodes.add(i++, new Label("invoke" + location));
@@ -150,7 +130,7 @@ public class ContinuationRewriting {
 					bytecodes.add(++i, new If(If.EQ, "skip" + location));
 
 					// Pop the irrelevant return value.
-					if (!invoke.type.returnType().equals(JvmTypes.T_VOID)) {
+					if (!ignoreReturn) {
 						bytecodes.add(++i, new Pop(JvmTypes.JAVA_LANG_OBJECT));
 					}
 
@@ -232,18 +212,18 @@ public class ContinuationRewriting {
 		}
 		
 		int length = frame.types.length;
-
-		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
+		System.out.println("FRAME: " + Arrays.toString(frame.types) + " : " + frame.numLocals);
+		for (int j = length - (ignoreReturn ? 1 : 0); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 			bytecodes.add(++i, new Swap());
-
+			System.out.println("SAVING: " + type);
 			if (type instanceof Reference) {
 				type = JAVA_LANG_OBJECT;
 			}
 
-			bytecodes.add(++i, new Invoke(CONTINUATION, "push", new Function(T_VOID, type),
-					Bytecode.VIRTUAL));
+			bytecodes.add(++i, new Invoke(CONTINUATION, "push", new Function(
+					T_VOID, type), Bytecode.VIRTUAL));
 		}
 
 		JvmType returnType = method.type().returnType();
@@ -260,15 +240,15 @@ public class ContinuationRewriting {
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
 			StackMapTable.Frame frame, boolean ignoreReturn) {
 		bytecodes.add(++i, new Label("resume" + location));
-		
 		int length = frame.types.length;
 
-		for (int j = length - (ignoreReturn ? 2 : 1); j >= frame.numLocals; --j) {
+		for (int j = frame.numLocals ; j < length; ++j) {
 			JvmType type = frame.types[j];
 			JvmType methodType = type;
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 			String name;
+			System.out.println("RESTORING: " + type);
 			if (type instanceof Reference) {
 				name = "popObject";
 				methodType = JAVA_LANG_OBJECT;
