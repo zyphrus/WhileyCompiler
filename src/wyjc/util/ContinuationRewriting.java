@@ -112,13 +112,24 @@ public class ContinuationRewriting {
 					// Ignore return indicates whether or not we need to save
 					// the return value or not. 
 					boolean ignoreReturn = !invoke.type.returnType().equals(T_VOID);
-
+					int ignores = ignoreReturn ? 4 : 5; 
+							
 					// If the code flow is arriving here for the first time, it needs to
 					// skip the resume. Future resumptions will jump to the start of the
 					// function to right after this goto with the following resume.
 					bytecodes.add(i++, new Goto("invoke" + location));
-					i = addResume(bytecodes, i - 1, location, frame, ignoreReturn) + 1;
+					i = addResume(bytecodes, i - 1, location, frame, ignores) + 1;
 
+					bytecodes.add(i++, new Load(0, CONTINUATION));
+
+					// Because we're resuming, the arguments don't actually matter. The
+					// analysis on the other end of the method will put the local
+					// variables into the right place.
+					List<JvmType> paramTypes = invoke.type.parameterTypes();
+					for (int j = 0; j < paramTypes.size(); ++j) {
+						bytecodes.add(i++, addNullValue(paramTypes.get(j)));
+					}
+					
 					// This label is just for the first-time skip commented above.
 					bytecodes.add(i++, new Label("invoke" + location));
 
@@ -134,7 +145,7 @@ public class ContinuationRewriting {
 						bytecodes.add(++i, new Pop(JvmTypes.JAVA_LANG_OBJECT));
 					}
 
-					i = addYield(method, bytecodes, i, location, frame, ignoreReturn);
+					i = addYield(method, bytecodes, i, location, frame, ignores);
 
 					bytecodes.add(++i, new Label("skip" + location));
 
@@ -184,12 +195,13 @@ public class ContinuationRewriting {
 	}
 
 	private int addYield(Method method, List<Bytecode> bytecodes, int i,
-			int location, StackMapTable.Frame frame, boolean ignoreReturn) {
+			int location, StackMapTable.Frame frame, int ignores) {
+		
 		bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 
 		bytecodes.add(++i, new LoadConst(location));
-		bytecodes.add(++i, new Invoke(CONTINUATION, "yield", new Function(T_VOID, T_INT),
-				Bytecode.VIRTUAL));
+		bytecodes.add(++i, new Invoke(CONTINUATION, "yield", new Function(
+				T_VOID, T_INT), Bytecode.VIRTUAL));
 
 		// TODO: incorporate liveness information here so that we don't store
 		// variables which are no longer live. This would help to cut down
@@ -213,7 +225,7 @@ public class ContinuationRewriting {
 		
 		int length = frame.types.length;
 		System.out.println("FRAME: " + Arrays.toString(frame.types) + " : " + frame.numLocals);
-		for (int j = length - (ignoreReturn ? 1 : 0); j >= frame.numLocals; --j) {
+		for (int j = (length - ignores - 1); j >= frame.numLocals; --j) {
 			JvmType type = frame.types[j];
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
 			bytecodes.add(++i, new Swap());
@@ -238,11 +250,11 @@ public class ContinuationRewriting {
 	}
 
 	private int addResume(List<Bytecode> bytecodes, int i, int location,
-			StackMapTable.Frame frame, boolean ignoreReturn) {
+			StackMapTable.Frame frame, int ignores) {
 		bytecodes.add(++i, new Label("resume" + location));
 		int length = frame.types.length;
 
-		for (int j = frame.numLocals ; j < length; ++j) {
+		for (int j = frame.numLocals; j < (length - ignores); ++j) {
 			JvmType type = frame.types[j];
 			JvmType methodType = type;
 			bytecodes.add(++i, new Bytecode.Load(0, CONTINUATION));
