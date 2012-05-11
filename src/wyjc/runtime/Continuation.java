@@ -220,10 +220,12 @@ public abstract class Continuation implements Runnable {
 	 * executing. This will move the continuation into the RUNNING state.
 	 */
 	public void restored() {
-		current = state.peek();
 		state.pop();		
 		if(state.isEmpty()) {
 			status = RUNNING;
+			current = null;
+		} else {
+			current = state.peek();
 		}
 	}	
 	
@@ -279,6 +281,7 @@ public abstract class Continuation implements Runnable {
 	}
 
 	public void set(int index, float value) {
+		System.out.println("SETTING: " + index + " : " + value);
 		current.localMap.put(index, value);
 	}
 
@@ -307,6 +310,7 @@ public abstract class Continuation implements Runnable {
 	}
 
 	public float getFloat(int index) {
+		System.out.println("GETTING: " + index);
 		return (Float) current.localMap.get(index);
 	}
 
@@ -334,7 +338,7 @@ public abstract class Continuation implements Runnable {
 		current.localStack.push(value);
 	}
 
-	public void push(float value) {
+	public void push(float value) {		
 		current.localStack.push(value);
 	}
 

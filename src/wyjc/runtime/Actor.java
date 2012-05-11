@@ -127,31 +127,33 @@ public final class Actor extends Continuation {
 	}
 
 	public final void go() {
+		// this method is hand optimised.
 		System.out.println("ACTOR ENTERS RUN: " + this);
-		switch (status()) {
-		case Continuation.RUNNING:
-			// FIXME: could be more efficient
-			while (!mailbox.isEmpty()) {
-				Message m = mailbox.poll();
-				System.out.println("ACTOR DISPATCHES: " + this);
-				dispatch(m);
-				if (status() != Continuation.RUNNING) {
-					System.out.println("ACTOR EXITS RUN: " + this);
-					// indicates we're yielding
-					return;
-				} else if (m instanceof SyncMessage) {
-					SyncMessage sm = (SyncMessage) m;
-					sm.sender.schedule(); // notify sender
-				}
-			}
-			System.out.println("ACTOR FINISHED MESSAGE LOOP: " + this);
-			break;
-		case Continuation.RESUMING:
-			// what to do here?
+		Message message;
+		
+		if(status() == Continuation.RESUMING) {
 			System.out.println("ACTOR ATTEMPTING RESUME: " + this);
-			break;
-		default:
-			System.out.println("ACTOR UNKNOWN STATE (" + status() + "): " + this);
+			message = (Message) this.getObject(0);
+			this.restored();
+			dispatch(message);
+		} else {
+			message = mailbox.poll();
+		}
+		
+		while (message != null) {
+			System.out.println("ACTOR DISPATCHES: " + this);
+			dispatch(message);
+			if (status() != Continuation.RUNNING) {
+				this.unwind(0);
+				this.set(0, message);
+				System.out.println("ACTOR YIELDING FROM RUN: " + this);
+				// indicates we're yielding
+				return;
+			} else if (message instanceof SyncMessage) {
+				SyncMessage sm = (SyncMessage) message;
+				sm.sender.schedule(); // notify sender
+			}
+			message = mailbox.poll();			
 		}
 		System.out.println("ACTOR EXITS RUN: " + this);
 	}
