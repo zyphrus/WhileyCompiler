@@ -1,0 +1,78 @@
+<project name="wyocl" default="build">  
+  <import file="../../config.xml"/>  
+
+  <target name="compile-wyocl">
+    <javac debug="true" debuglevel="vars,lines,source" source="1.6" includeantruntime="true" classpath="../wyone/src:../wyil/src:../wyc/src:../wybs/src/"> 
+      <src path="src"/>
+      <include name="*/**"/>
+      <exclude name="wyocl/testing/**"/> 
+      <exclude name="*/**/package-info.java"/> 
+    </javac>
+    <taskdef name="wyocl" classname="wyocl.util.WyoclAntTask" classpath="src/:../wyil/src/:../wyc/src:../wyone/src:../wybs/src/:../wyjc/src"/>
+    <wyocl verbose="false" wyildir="../wyrt/src" classdir="src" includes="whiley/**/*.wyil"/>
+  </target>
+
+  <target name="build" depends="compile-wyocl">
+    <mkdir dir="tmp"/>
+    <manifest file="tmp/MANIFEST.MF">
+      <attribute name="Built-By" value="${user.name}"/>
+      <attribute name="Main-Class" value="wyocl.WyoclMain"/>
+      <attribute name="Implementation-Version" value="${version}"/>
+      <attribute name="Implementation-Title" value="wyocl-v${version}.jar"/>
+    </manifest>
+    <jar destfile="../../lib/wyocl-v${version}.jar" manifest="tmp/MANIFEST.MF">
+      <fileset dir="src" includes="*/**/*.class"/>
+    </jar>
+    <delete dir="tmp"/>
+    <echo message="============================================="/>
+    <echo message="BUILT: lib/${ant.project.name}-v${version}.jar"/>
+    <echo message="============================================="/>
+  </target>
+  
+  <target name="dist" depends="build">
+    <mkdir dir="tmp"/>
+    <manifest file="tmp/MANIFEST.MF">
+      <attribute name="Built-By" value="${user.name}"/>
+      <attribute name="Main-Class" value="wyocl.WyoclMain"/>
+      <attribute name="Implementation-Version" value="${version}"/>
+      <attribute name="Implementation-Title" value="wyocl-v${version}.jar"/>
+    </manifest>
+    <jar destfile="../../dist/wyocl-all-v${version}.jar" manifest="tmp/MANIFEST.MF">
+      <fileset dir="../wyone/src">
+	<include name="wyone/**/*.class"/>
+	<include name="wyautl/**/*.class"/>
+      </fileset>
+      <fileset dir="../wyil/src">
+	<include name="wyautl_old/**/*.class"/>
+	<include name="wybs/**/*.class"/>
+	<include name="wycs/**/*.class"/>
+	<include name="wyil/**/*.class"/>
+      </fileset>
+      <fileset dir="../wyc/src">
+	<include name="wyc/**/*.class"/>
+      </fileset>
+      <fileset dir="../wyrt/src">
+	<include name="whiley/**/*.wyil"/>
+      </fileset>
+      <fileset dir="src">
+	<include name="whiley/**/*.class"/>
+	<include name="wyocl/**/*.class"/>
+	<include name="wyjvm/**/*.class"/>
+      </fileset>
+    </jar>
+    <delete dir="tmp"/>
+    <echo message="============================================="/>
+    <echo message="BUILT: dist/${ant.project.name}-all-v${version}.jar"/>
+    <echo message="============================================="/>
+  </target>
+
+ <target name="clean">
+   <delete includeEmptyDirs="true" failonerror="false">
+     <fileset dir="." includes="**/*.class,**/*.wyil,**/*.wyasm"/>
+   </delete>
+    <echo message="============================================="/>
+    <echo message="CLEANED: ${ant.project.name}"/>
+    <echo message="============================================="/>
+ </target>
+
+</project>
