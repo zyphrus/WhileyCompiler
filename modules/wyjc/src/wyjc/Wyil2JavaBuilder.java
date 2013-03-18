@@ -398,21 +398,23 @@ public class Wyil2JavaBuilder implements Builder {
 	 *            --- list to insert bytecodes into *
 	 */
 	public void translate(Block blk, int freeSlot,
-			HashMap<JvmConstant, Integer> constants, 
+			HashMap<JvmConstant, Integer> constants,
 			ArrayList<Handler> handlers,
 			ArrayList<LineNumberTable.Entry> lineNumbers,
 			ArrayList<Bytecode> bytecodes) {
-		
+
 		ArrayList<UnresolvedHandler> unresolvedHandlers = new ArrayList<UnresolvedHandler>();
-		for (Entry s : blk) {
+		for (int i = 0; i != blk.size(); ++i) {
+			Entry s = blk.get(i);
 			Attribute.Source loc = s.attribute(Attribute.Source.class);
-			if(loc != null) {				
-				lineNumbers.add(new LineNumberTable.Entry(bytecodes.size(),loc.line));
+			if (loc != null) {
+				lineNumbers.add(new LineNumberTable.Entry(bytecodes.size(),
+						loc.line));
 			}
 			freeSlot = translate(s, freeSlot, constants, unresolvedHandlers,
 					bytecodes);
 		}
-		
+
 		if (unresolvedHandlers.size() > 0) {
 			HashMap<String, Integer> labels = new HashMap<String, Integer>();
 
@@ -432,11 +434,11 @@ public class Wyil2JavaBuilder implements Builder {
 				handlers.add(handler);
 			}
 		}
-		
+
 		// here, we need to resolve the handlers.
 	}
 	
-	public int translate(Entry entry, int freeSlot,
+	protected int translate(Entry entry, int freeSlot,
 			HashMap<JvmConstant, Integer> constants,
 			ArrayList<UnresolvedHandler> handlers, ArrayList<Bytecode> bytecodes) {
 		try {
@@ -2827,9 +2829,9 @@ public class Wyil2JavaBuilder implements Builder {
 	 * @author David J. Pearce
 	 *
 	 */
-	private abstract static class JvmConstant {}
+	protected abstract static class JvmConstant {}
 	
-	private static final class JvmValue extends JvmConstant {
+	protected  static final class JvmValue extends JvmConstant {
 		public final Constant value;
 		public JvmValue(Constant v) {
 			value = v;
@@ -2856,7 +2858,7 @@ public class Wyil2JavaBuilder implements Builder {
 			}			
 		}
 	}
-	private static final class JvmCoercion extends JvmConstant {
+	protected static final class JvmCoercion extends JvmConstant {
 		public final Type from;
 		public final Type to;
 		public JvmCoercion(Type from, Type to) {
@@ -2886,7 +2888,7 @@ public class Wyil2JavaBuilder implements Builder {
 		}
 	}
 	
-	private static class UnresolvedHandler {
+	protected static class UnresolvedHandler {
 		public String start;
 		public String end;
 		public String target;
