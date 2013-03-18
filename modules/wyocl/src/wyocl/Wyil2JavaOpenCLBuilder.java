@@ -1,5 +1,7 @@
 package wyocl;
 
+import wyjc.*;
+
 /**
  * A builder for compiling Wyil files into a combination of Java and OpenCL.
  * Essentially, certain loops marked for execution on the GPU are compiled into
@@ -8,6 +10,6 @@ package wyocl;
  * 
  * 
  */
-public class Wyil2JavaOpenCLBuilder {
-
+public class Wyil2JavaOpenCLBuilder extends Wyil2JavaBuilder {
+	
 }

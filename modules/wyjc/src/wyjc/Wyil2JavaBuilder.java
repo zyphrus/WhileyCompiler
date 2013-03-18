@@ -121,7 +121,7 @@ public class Wyil2JavaBuilder implements Builder {
 				endTime - start, memory - runtime.freeMemory());
 	}	
 	
-	private ClassFile build(WyilFile module) {		
+	protected ClassFile build(WyilFile module) {		
 		owner = new JvmType.Clazz(module.id().parent().toString().replace('.','/'),
 				module.id().last());
 		ArrayList<Modifier> modifiers = new ArrayList<Modifier>();
@@ -155,12 +155,12 @@ public class Wyil2JavaBuilder implements Builder {
 		return cf;
 	}	
 	
-	private void buildConstants(HashMap<JvmConstant,Integer> constants, ClassFile cf) {						
+	protected void buildConstants(HashMap<JvmConstant,Integer> constants, ClassFile cf) {						
 		buildCoercions(constants,cf);
 		buildValues(constants,cf);
 	}
 	
-	private void buildCoercions(HashMap<JvmConstant,Integer> constants, ClassFile cf) {
+	protected void buildCoercions(HashMap<JvmConstant,Integer> constants, ClassFile cf) {
 		HashSet<JvmConstant> done = new HashSet<JvmConstant>();
 		HashMap<JvmConstant,Integer> original = constants;
 		// this could be a little more efficient I think!!		
@@ -183,7 +183,7 @@ public class Wyil2JavaBuilder implements Builder {
 		original.putAll(constants);
 	}
 	
-	private void buildValues(HashMap<JvmConstant,Integer> constants, ClassFile cf) {
+	protected void buildValues(HashMap<JvmConstant,Integer> constants, ClassFile cf) {
 		int nvalues = 0;
 		ArrayList<Bytecode> bytecodes = new ArrayList<Bytecode>();
 		
@@ -258,7 +258,7 @@ public class Wyil2JavaBuilder implements Builder {
 		return cm;	
 	}
 	
-	private List<ClassFile.Method> build(WyilFile.MethodDeclaration method,
+	protected List<ClassFile.Method> build(WyilFile.MethodDeclaration method,
 			HashMap<JvmConstant, Integer> constants) {
 		ArrayList<ClassFile.Method> methods = new ArrayList<ClassFile.Method>();
 		int num = 1;
@@ -275,7 +275,7 @@ public class Wyil2JavaBuilder implements Builder {
 		return methods;
 	}
 	
-	private ClassFile.Method build(int caseNum, WyilFile.Case mcase,
+	protected ClassFile.Method build(int caseNum, WyilFile.Case mcase,
 			WyilFile.MethodDeclaration method, HashMap<JvmConstant,Integer> constants) {		
 		
 		ArrayList<Modifier> modifiers = new ArrayList<Modifier>();
@@ -314,7 +314,7 @@ public class Wyil2JavaBuilder implements Builder {
 		return cm;
 	}
 	
-	private ClassFile.Method buildNativeOrExport(WyilFile.Case mcase,
+	public ClassFile.Method buildNativeOrExport(WyilFile.Case mcase,
 			WyilFile.MethodDeclaration method, HashMap<JvmConstant,Integer> constants) {
 		ArrayList<Modifier> modifiers = new ArrayList<Modifier>();
 		if(method.isPublic() || method.isProtected()) {
@@ -378,7 +378,7 @@ public class Wyil2JavaBuilder implements Builder {
 		return bytecodes;
 	}
 	
-	private ArrayList<Bytecode> translate(WyilFile.Case mcase,
+	public ArrayList<Bytecode> translate(WyilFile.Case mcase,
 			HashMap<JvmConstant, Integer> constants, ArrayList<Handler> handlers,
 			ArrayList<LineNumberTable.Entry> lineNumbers) {
 		ArrayList<Bytecode> bytecodes = new ArrayList<Bytecode>();
@@ -397,7 +397,7 @@ public class Wyil2JavaBuilder implements Builder {
 	 * @param bytecodes
 	 *            --- list to insert bytecodes into *
 	 */
-	private void translate(Block blk, int freeSlot,
+	public void translate(Block blk, int freeSlot,
 			HashMap<JvmConstant, Integer> constants, 
 			ArrayList<Handler> handlers,
 			ArrayList<LineNumberTable.Entry> lineNumbers,
@@ -436,7 +436,7 @@ public class Wyil2JavaBuilder implements Builder {
 		// here, we need to resolve the handlers.
 	}
 	
-	private int translate(Entry entry, int freeSlot,
+	public int translate(Entry entry, int freeSlot,
 			HashMap<JvmConstant, Integer> constants,
 			ArrayList<UnresolvedHandler> handlers, ArrayList<Bytecode> bytecodes) {
 		try {
