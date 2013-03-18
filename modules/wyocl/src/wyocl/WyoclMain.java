@@ -40,7 +40,7 @@ public class WyoclMain {
 	
 	public static void main(String[] args) {
 		// FIXME: modify default options to include classdir
-		System.exit(new WycMain(new WyjcBuildTask(), WycMain.DEFAULT_OPTIONS)
+		System.exit(new WycMain(new WyoclBuildTask(), WycMain.DEFAULT_OPTIONS)
 				.run(args));
 	}
 }
