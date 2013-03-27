@@ -27,6 +27,7 @@ package wyocl;
 
 import wyc.WycMain;
 import wyjc.util.WyjcBuildTask;
+import wyocl.util.WyoclBuildTask;
 
 /**
  * The main class provides all of the necessary plumbing to process command-line

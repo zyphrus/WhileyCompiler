@@ -1,7 +1,7 @@
-package wyocl;
+package wyocl.util;
 
-import wyjc.Wyil2JavaBuilder;
 import wyjc.util.WyjcBuildTask;
+import wyocl.builders.Wyil2JavaBuilder;
 
 /**
  * Responsible for controlling the building of JVM Class files using the
@@ -15,6 +15,6 @@ public class WyoclBuildTask extends WyjcBuildTask {
 
 	@Override
 	protected Wyil2JavaBuilder getBuilder() {
-		return new Wyil2JavaOpenCLBuilder();
+		return new Wyil2JavaBuilder();
 	}
 }
