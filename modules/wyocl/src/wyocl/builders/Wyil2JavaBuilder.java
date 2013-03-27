@@ -34,14 +34,17 @@ public class Wyil2JavaBuilder extends wyjc.Wyil2JavaBuilder {
 			Code.Label lab = (Code.Label) code;
 			if(lab.label.equals(endLabel)) {
 				// hit
-				System.out.println("END OF LOOP: " + endLabel);
 				endLabel = null;
 				return freeSlot; // skip it
 			}
 		}
 		
 		if (endLabel != null) {
-			System.out.println("SKIPPING BYTECODE: " + entry.code);
+			// skip this bytecode.
+			
+			// TODO: add bytecodes which call the required method to invoke the
+			// corresponding kernel.
+			
 			return freeSlot;
 		} else {
 			return super.translate(entry, freeSlot, constants, handlers,
@@ -53,7 +56,6 @@ public class Wyil2JavaBuilder extends wyjc.Wyil2JavaBuilder {
 	protected int translate(Code.ForAll c, int freeSlot,
 			ArrayList<Bytecode> bytecodes) {
 		endLabel = c.target;
-		System.out.println("START OF FOR LOOP: " + endLabel);
 		// return super.translate(c, freeSlot, bytecodes);
 		return freeSlot;
 	}
