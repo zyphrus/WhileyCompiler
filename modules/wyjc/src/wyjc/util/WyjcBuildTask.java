@@ -97,7 +97,7 @@ public class WyjcBuildTask extends wyc.util.WycBuildTask {
 		// Now, add build rule for converting wyil files into class files using
 		// the Wyil2JavaBuilder.
 		
-		Wyil2JavaBuilder jbuilder = getBuilder();
+		Wyil2JavaBuilder jbuilder = new Wyil2JavaBuilder();
 
 		if (verbose) {
 			jbuilder.setLogger(new Logger.Default(System.err));
@@ -137,10 +137,6 @@ public class WyjcBuildTask extends wyc.util.WycBuildTask {
 	protected void flush() throws IOException {
 		super.flush();
 		classDir.flush();
-	}
-	
-	protected Wyil2JavaBuilder getBuilder() {
-		return new Wyil2JavaBuilder();
-	}
+	}	
 }		
 
