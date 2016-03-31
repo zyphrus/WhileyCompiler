@@ -21,6 +21,7 @@ package wyil.lang;
 import java.io.IOException;
 import java.util.*;
 
+import wyautl.io.PrettyAutomataWriter;
 import wyautl_old.io.BinaryAutomataReader;
 import wyautl_old.io.BinaryAutomataWriter;
 import wyautl_old.lang.*;
@@ -30,6 +31,7 @@ import wyfs.io.BinaryInputStream;
 import wyfs.io.BinaryOutputStream;
 import wyfs.util.Trie;
 import wyil.util.type.*;
+import wyrw.util.Reductions;
 
 /**
  * A structural type. See
@@ -496,9 +498,38 @@ public abstract class Type {
 		Automaton a1 = destruct(t1);
 		Automaton a2 = destruct(t2);
 		SubtypeOperator relation = new SubtypeOperator(a1,a2);
-		return relation.isSubtype(0, 0);
+		boolean r1 = relation.isSubtype(0, 0);
+		boolean r2 = isOtherSubtype(a1,a2);
+		if(r1 != r2) {
+			System.out.println("*** " +  t1 + " :> " + t2 + " (INCONSISTENT)");
+		} 
+		return r2;
 	}
 
+	public static boolean isOtherSubtype(Automaton a1, Automaton a2) {
+		wyautl.core.Automaton r1 = convert(a1);
+		wyautl.core.Automaton r2 = convert(a2);
+		//print(r1);
+		//print(r2);
+		int rhs = r1.addAll(0, r2);		
+		int lhs = Types.NotT(r1,0);
+		int and = Types.AndT(r1, lhs, rhs);
+		r1.setRoot(0, and);
+		Reductions.minimiseAndReduce(r1, 5000, Types.SCHEMA, Types.reductions);
+		r1.canonicalise();
+		//
+		//print(r1);		
+		//
+		return r1.get(r1.getRoot(0)).kind == Types.K_VoidT;
+	}
+	
+	private static void print(wyautl.core.Automaton a) {
+		try {
+			new PrettyAutomataWriter(System.err, Types.SCHEMA).write(a);
+			System.out.println();
+		} catch(IOException e) {}	
+	}
+	
 	/**
 	 * <p>
 	 * Contractive types are types which cannot accept value because they have
@@ -1779,12 +1810,19 @@ public abstract class Type {
 	 */
 	private static wyautl.core.Automaton convert(Automaton a) {
 		wyautl.core.Automaton.State[] states = new wyautl.core.Automaton.State[a.states.length];
-		
+		ArrayList<wyautl.core.Automaton.State> extras = new ArrayList<wyautl.core.Automaton.State>(); 
 		for(int i=0;i!=states.length;++i) {
-			states[i] = convert(a.states[i]);
+			states[i] = convert(a.states[i],states.length,extras);
 		}
-		
-		return new wyautl.core.Automaton(states);
+		wyautl.core.Automaton.State[] nStates = Arrays.copyOf(states, states.length + extras.size());
+		for(int i=0;i!=extras.size();++i) {
+			nStates[i+states.length] = extras.get(i);
+		}
+		wyautl.core.Automaton r = new wyautl.core.Automaton(nStates);
+		//
+		r.setRoot(0, 0);
+		//
+		return r;
 	}
 	
 	/**
@@ -1794,7 +1832,7 @@ public abstract class Type {
 	 * @param state
 	 * @return
 	 */
-	private static wyautl.core.Automaton.State convert(Automaton.State state) {
+	private static wyautl.core.Automaton.State convert(Automaton.State state, int offset, List<wyautl.core.Automaton.State> extras) {
 		int child = wyautl.core.Automaton.K_VOID;
 		int kind;
 		switch(state.kind) {
@@ -1810,17 +1848,102 @@ public abstract class Type {
 		case K_BOOL:
 			kind = Types.K_BoolT;
 			break;
+		case K_BYTE:
+			kind = Types.K_ByteT;
+			break;
 		case K_INT:
 			kind = Types.K_IntT;
 			break;
 		case K_LIST:
 			kind = Types.K_ArrayT;
 			child = state.children[0];
+			break;		
+		case K_REFERENCE:
+			kind = Types.K_ReferenceT;
+			child = state.children[0];
 			break;
+		case K_NEGATION:
+			kind = Types.K_NotT;
+			child = state.children[0];
+			break;
+		case K_RECORD: {
+			Record.State rState = (Record.State) state.data;
+			kind = Types.K_RecordT;
+			int[] children = new int[state.children.length];
+			for(int i=0;i!=children.length;++i) {
+				int name = extras.size() + offset;
+				extras.add(new wyautl.core.Automaton.Strung(rState.get(i)));
+				children[i] = extras.size() + offset; 
+				extras.add(new wyautl.core.Automaton.List(name,state.children[i]));							
+			}
+			child = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.Set(children));
+			break;
+		}
+		case K_UNION: {
+			kind = Types.K_OrT;
+			int[] children = Arrays.copyOf(state.children, state.children.length);			
+			child = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.Set(children));
+			break;
+		}
+		case K_FUNCTION:
+		case K_METHOD: {
+			kind = Types.K_FunctionT;
+			int numberOfParameters = (Integer) state.data;
+			int numberOfReturns = state.children.length - numberOfParameters;
+			int[] params = new int[numberOfParameters];
+			int[] returns = new int[numberOfReturns];
+			for(int i=0;i!=numberOfParameters;++i) {
+				params[i]=state.children[i];
+			}
+			for(int i=0;i!=numberOfReturns;++i) {
+				returns[i]=state.children[i+numberOfParameters];
+			}
+			int pureChild = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.Bool(state.kind == K_FUNCTION));
+			int paramsChild = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.List(params));
+			int returnsChild = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.List(returns));
+			child = extras.size() + offset;
+			extras.add(new wyautl.core.Automaton.List(pureChild,paramsChild,returnsChild));
+			break;
+		}
 		default:
 			throw new RuntimeException("Unknown state kind encountered: " + state.kind);		
 		}
 		return new wyautl.core.Automaton.Term(kind,child);
+	}
+	
+	private static int[] convertNegativeChildren(int... children) {
+		int[] nChildren = new int[children.length];
+		for(int i=0;i!=children.length;++i) {
+			nChildren[i] = convertNegativeChild(children[i]);
+		}
+		return nChildren;
+	}
+	
+	private static int convertNegativeChild(int child) {
+		switch(child) {
+		case -K_VOID:
+			return  -Types.K_VoidT + wyautl.core.Automaton.K_FREE;
+		case -K_ANY:
+			return -Types.K_AnyT + wyautl.core.Automaton.K_FREE;
+		case -K_NULL:
+			return  -Types.K_NullT + wyautl.core.Automaton.K_FREE;
+		case -K_BOOL:
+			return  -Types.K_BoolT + wyautl.core.Automaton.K_FREE;
+		case -K_BYTE:
+			return -Types.K_ByteT + wyautl.core.Automaton.K_FREE;
+		case -K_INT:
+			return -Types.K_IntT + wyautl.core.Automaton.K_FREE;
+		}
+		if(child >= 0) {
+			return child;
+		} else {
+			throw new RuntimeException("Unknown negative child encountered: " + child);
+		}
 	}
 	
 	public static void main(String[] args) {

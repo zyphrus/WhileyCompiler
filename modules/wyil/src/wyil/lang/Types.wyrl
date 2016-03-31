@@ -69,6 +69,10 @@ reduce AndT{}:
 reduce AndT{Type t}:
     => t
 
+reduce AndT{NotT(Type t1), Type t2, Type... ys}
+requires t1 == t2:
+    => VoidT
+
 reduce AndT{AndT{Type... xs}, Type... ys}:
     => AndT (xs ++ ys)
 
@@ -99,19 +103,43 @@ term RecordT{[string,Type]...}
 reduce RecordT{[string,VoidT], [string,Type]... ts}:
     => VoidT
 
-// reduce AndT{TupleT[Type... t1s], TupleT[Type... t2s], Type... ts}:
-//     => VoidT, if |t1s| != |t2s|
-//     => let r = [ AndT{t1s[i],t2s[i]} | i in 0..|t1s| ]
-//        in AndT(TupleT(r) ++ ts)
+reduce AndT{RecordT{[string,Type]... t1s},
+            RecordT{[string,Type]... t2s},
+            Type... ts}
+requires |t1s| != |t2s|:
+    => VoidT
 
-// reduce AndT{TupleT[Type... t1s] t1, NotT(TupleT[Type... t2s]), Type... ts}:
-//     => AndT(t1 ++ ts), if |t1s| != |t2s|
-//     => VoidT, if |t1s| == 0
-//     => let r = [ AndT{t1s[i],NotT(t2s[i])} | i in 0..|t1s| ]
-//        in AndT(TupleT(r) ++ ts)
+reduce AndT{RecordT{[string,Type]... t1s},
+            RecordT{[string,Type]... t2s},
+            Type... ts}
+requires |t1s| == |t2s| && { p[0] | p in t1s } != { p[0] | p in t2s }:
+    => VoidT
 
-// reduce AndT{TupleT[Type...] t1, NotT(ArrayT(Type)), Type... ts}:
-//     => AndT({t1} ++ ts)
+reduce AndT{RecordT{[string,Type]... t1s},
+            RecordT{[string,Type]... t2s},
+            Type... ts}
+requires |t1s| == |t2s| && { p[0] | p in t1s } == { p[0] | p in t2s }:
+    => let f1s = { [p1[0],AndT{p1[1],p2[1]}] | p1 in t1s, p2 in t2s, p1[0]==p2[0] }
+       in AndT(RecordT(f1s)++ts)
+
+reduce AndT{RecordT{[string,Type]... t1s} r,
+            NotT(RecordT{[string,Type]... t2s}),
+            Type... ts}
+requires |t1s| != |t2s|:
+    => AndT(r ++ ts)
+
+reduce AndT{RecordT{[string,Type]... t1s} r,
+            NotT(RecordT{[string,Type]... t2s}),
+            Type... ts}
+requires |t1s| == |t2s| && { p[0] | p in t1s } != { p[0] | p in t2s }:
+    => AndT(r ++ ts)
+
+reduce AndT{RecordT{[string,Type]... t1s},
+            NotT(RecordT{[string,Type]... t2s}),
+            Type... ts}
+requires |t1s| == |t2s| && { p[0] | p in t1s } == { p[0] | p in t2s }:
+    => let f1s = { [p1[0],AndT{p1[1],NotT(p2[1])}] | p1 in t1s, p2 in t2s, p1[0]==p2[0] }
+       in AndT(RecordT(f1s)++ts)
 
 // TODO: pull disjuncts out of records?
 
@@ -123,14 +151,20 @@ term ArrayT(Type)
 reduce ArrayT(VoidT):
     => VoidT
 
-reduce AndT{ArrayT(Type t1), ArrayT(Type t2), Type... ts}:
+reduce AndT{ArrayT(Type t1),
+            ArrayT(Type t2),
+            Type... ts}:
     => AndT(ArrayT(AndT{t1,t2})++ts)
 
-reduce AndT{ArrayT(Type t1), NotT(ArrayT(Type t2)), Type... ts}:
+reduce AndT{ArrayT(Type t1),
+            NotT(ArrayT(Type t2)),
+            Type... ts}:
     => AndT(ArrayT(AndT{t1,NotT(t2)})++ts)
 
-reduce AndT{ArrayT(Type) t1, NotT(RecordT{[string,Type]...}), Type... ts}:
-    => AndT({t1} ++ ts)
+reduce AndT{ArrayT(Type) t1,
+           NotT(RecordT),
+           Type... ts}:
+    => AndT(t1 ++ ts)
 
 reduce AndT{ArrayT(Type) s, Proton p, Type... ts}
 requires !(p is AnyT):
@@ -138,7 +172,70 @@ requires !(p is AnyT):
 
 reduce OrT{ArrayT(Type t1) s1, ArrayT(Type t2) s2, Type... ts}
 requires t1 == t2:
-    => OrT({s1}++ts)
+    => OrT(s1 ++ ts)
+
+// ====================================================================
+// References
+// ====================================================================
+term ReferenceT(Type)
+
+reduce ReferenceT(VoidT):
+    => VoidT
+
+reduce AndT{ReferenceT(Type t1),
+            ReferenceT(Type t2),
+            Type... ts}
+requires t1 == t2:
+    => AndT(ReferenceT(t1)++ts)
+
+reduce AndT{ReferenceT(Type t1),
+            ReferenceT(Type t2),
+            Type... ts}
+requires t1 != t2:
+    => AndT(ReferenceT(t1)++ts)
+
+reduce AndT{ReferenceT(Type t1) r,
+            NotT(ReferenceT(Type t2)),
+            Type... ts}
+requires t1 != t2:
+    => AndT(r ++ ts)
+
+// ====================================================================
+// Function
+// ====================================================================
+term FunctionT[bool,[Type...],[Type...]]
+
+reduce FunctionT[bool,[Type... from],[Type... to]]
+requires VoidT in from || VoidT in to:
+    => VoidT
+
+reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]],
+            FunctionT[bool p2,[Type... f2s],[Type... t2s]],
+            Type... ts}
+requires p1 != p2:
+    => VoidT
+
+reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]],
+            FunctionT[bool p2,[Type... f2s],[Type... t2s]],
+            Type... ts}
+requires p1 == p2:
+    => VoidT, if |f1s| != |f2s| || |t1s| != |t2s|
+    => let from = [ AndT{f1s[i],f2s[i]} | i in 0..|f1s|],
+           to   = [ OrT{t1s[i],t2s[i]} | i in 0..|t1s|]
+       in AndT(FunctionT[p1,from,to] ++ ts)
+
+reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]] f,
+            NotT(FunctionT[bool p2,[Type... f2s],[Type... t2s]]),
+            Type... ts}
+requires p1 != p2:
+    => AndT(f ++ ts)
+
+reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]] f,
+            FunctionT[bool p2,[Type... f2s],[Type... t2s]],
+            Type... ts}
+requires p1 == p2:
+    => AndT(f ++ ts), if |f1s| != |f2s| || |t1s| != |t2s|
+    // FIXME: need another rule here
 
 // ====================================================================
 // Atoms
@@ -148,11 +245,12 @@ term AnyT
 term VoidT
 term NullT
 term BoolT
+term ByteT
 term IntT
 term NominalT(string)
 
-define Quark as AnyT | NullT | VoidT | BoolT | IntT | NominalT(string)
-define Proton as Quark | RecordT{[string,Proton]...} | ArrayT(Proton)
+define Quark as AnyT | NullT | VoidT | BoolT | ByteT | IntT | NominalT(string)
+define Proton as Quark | RecordT{[string,Proton]...} | ArrayT(Proton) | ReferenceT(Proton) | FunctionT[bool,[Proton...],[Proton...]]
 define Atom as Proton | NotT(Proton)
 
 reduce AndT{VoidT, Type... xs}:
@@ -183,14 +281,10 @@ reduce OrT{AnyT, Type... xs}:
 reduce OrT{VoidT, Type... xs}:
     => OrT(xs)
 
-// ====================================================================
-// Function
-// ====================================================================
-term FunctionT[Type,Type, Type...]
 
 // ====================================================================
 // General Type
 // ====================================================================
 
-define Type as Atom | NotT | OrT | AndT | ArrayT | RecordT | FunctionT
+define Type as Atom | NotT | OrT | AndT | ArrayT | ReferenceT | RecordT | FunctionT
 
