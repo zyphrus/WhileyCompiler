@@ -1764,6 +1764,65 @@ public abstract class Type {
 		}
 	}
 
+	/**
+	 * This is a temporary method charged with converting between old-style
+	 * Automaton and the new Automaton. This is part of #618
+	 * 
+	 * The main problem is that there will be a difference in the number of
+	 * states between the old and new automaton. These new states will represent
+	 * constants (e.g. strings), which were previously encoded separately. To
+	 * address this, we'll put all of these states at the end of the new
+	 * automaton. Thus, the mapping between old and new states is unchanged.
+	 * 
+	 * @param a
+	 * @return
+	 */
+	private static wyautl.core.Automaton convert(Automaton a) {
+		wyautl.core.Automaton.State[] states = new wyautl.core.Automaton.State[a.states.length];
+		
+		for(int i=0;i!=states.length;++i) {
+			states[i] = convert(a.states[i]);
+		}
+		
+		return new wyautl.core.Automaton(states);
+	}
+	
+	/**
+	 * Convert an individual automaton state from the old style to the new. This
+	 * is a temporary function put in place as part of #618.
+	 * 
+	 * @param state
+	 * @return
+	 */
+	private static wyautl.core.Automaton.State convert(Automaton.State state) {
+		int child = wyautl.core.Automaton.K_VOID;
+		int kind;
+		switch(state.kind) {
+		case K_VOID:
+			kind = Types.K_VoidT;
+			break;
+		case K_ANY:
+			kind = Types.K_AnyT;
+			break;
+		case K_NULL:
+			kind = Types.K_NullT;			
+			break;
+		case K_BOOL:
+			kind = Types.K_BoolT;
+			break;
+		case K_INT:
+			kind = Types.K_IntT;
+			break;
+		case K_LIST:
+			kind = Types.K_ArrayT;
+			child = state.children[0];
+			break;
+		default:
+			throw new RuntimeException("Unknown state kind encountered: " + state.kind);		
+		}
+		return new wyautl.core.Automaton.Term(kind,child);
+	}
+	
 	public static void main(String[] args) {
 		//Type from = fromString("(null,null)");
 		//Type to = fromString("X<[X]>");
