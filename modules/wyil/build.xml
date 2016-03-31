@@ -2,6 +2,8 @@
   <import file="../../config.xml"/>
 
   <target name="compile-wyil">
+    <taskdef name="wyrl" classname="wyrl.util.WyrlAntTask" classpath="../wybs/src/:../../${WYRL_JAR}"/>
+    <wyrl srcdir="src/" debug="false" source="wyil/lang/Types.wyrl" output="wyil/lang/Types.java"/>    
     <javac memoryMaximumSize="2048m" fork="true" debug="true" debuglevel="vars,lines,source" source="1.7" target="1.7" includeantruntime="true"  classpath="../wycs/src/:../wybs/src/:../../${WYRL_JAR}">
       <src path="src"/>
       <include name="*/**"/>
