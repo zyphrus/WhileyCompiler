@@ -10,7 +10,7 @@
 
   <!-- Paths to common JARs -->
   <property name="JASM_JAR" value="lib/jasm-v0.1.7.jar"/>
-  <property name="WYRL_JAR" value="lib/wyrl-v0.4.4.jar"/>
+  <property name="WYRL_JAR" value="lib/wyrl-v0.4.5.jar"/>
 
   <!-- Set the classpath for Junit and its dependencies -->
   <maven:dependencies pathId="junit.classpath">
