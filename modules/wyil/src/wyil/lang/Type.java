@@ -499,18 +499,19 @@ public abstract class Type {
 		Automaton a2 = destruct(t2);
 		SubtypeOperator relation = new SubtypeOperator(a1,a2);
 		boolean r1 = relation.isSubtype(0, 0);
-		boolean r2 = isOtherSubtype(a1,a2);
-		if(r1 != r2) {
-			System.out.println("*** " +  t1 + " :> " + t2 + " (INCONSISTENT)");
-		} 
-		return r2;
+//		boolean r2 = isOtherSubtype(a1,a2);
+//		if(r1 != r2) {
+//			System.out.println("*** " +  t1 + " :> " + t2 + " (INCONSISTENT)");
+//		} 
+//		return r2;
+		return r1;
 	}
 
 	public static boolean isOtherSubtype(Automaton a1, Automaton a2) {
 		wyautl.core.Automaton r1 = convert(a1);
 		wyautl.core.Automaton r2 = convert(a2);
-		//print(r1);
-		//print(r2);
+		print(r1);
+		print(r2);
 		int rhs = r1.addAll(0, r2);		
 		int lhs = Types.NotT(r1,0);
 		int and = Types.AndT(r1, lhs, rhs);

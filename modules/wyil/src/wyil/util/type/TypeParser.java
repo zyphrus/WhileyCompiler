@@ -57,7 +57,7 @@ public class TypeParser {
 	}
 
 	public Type parse(HashSet<String> typeVariables) {
-		Type term = parseNotTerm(typeVariables);
+		Type term = parseArray(typeVariables);
 		skipWhiteSpace();
 		while (index < str.length()
 				&& (str.charAt(index) == '|')) {
@@ -97,30 +97,16 @@ public class TypeParser {
 //		return elems;
 //	}
 	
-	public Type parseNotTerm(HashSet<String> typeVariables) {
-		skipWhiteSpace();
-		char lookahead = str.charAt(index);
-		if(lookahead == '!') {
-			match("!");
-			return Negation(parseNotTerm(typeVariables));
-		} else {
-			return parseBraceTerm(typeVariables);
+	public Type parseArray(HashSet<String> typeVariables) {
+		Type term = parseTerm(typeVariables);
+		while(index < str.length() && str.charAt(index) == '[') {
+			match("[");
+			match("]");
+			term = Array(term,false);
 		}
+		return term;
 	}
-	public Type parseBraceTerm(HashSet<String> typeVariables) {
-		skipWhiteSpace();
-		char lookahead = str.charAt(index);
-		if(lookahead == '(') {
-			match("(");
-			Type t = parse(typeVariables);
-			skipWhiteSpace();
-			match(")");
-			skipWhiteSpace();
-			return t;
-		} else {
-			return parseTerm(typeVariables);
-		}
-	}
+		
 	public Type parseTerm(HashSet<String> typeVariables) {
 		skipWhiteSpace();
 		char lookahead = str.charAt(index);
@@ -146,39 +132,42 @@ public class TypeParser {
 		case 'i':
 			match("int");
 			return T_INT;		
-		case '[':
-		{
-			match("[");
-			Type elem = parse(typeVariables);
-			match("]");
-			return Array(elem, false);
+		case '!':
+			match("!");
+			return Negation(parseArray(typeVariables));
+		case '(': {
+			match("(");
+			Type t = parse(typeVariables);
+			skipWhiteSpace();
+			match(")");
+			skipWhiteSpace();
+			return t;	
 		}
 		case '{':
-		{
 			match("{");
-			Type elem = parse(typeVariables);
-			skipWhiteSpace();
 			// record
-			HashMap<String,Type> fields = new HashMap<String,Type>();
-			String id = parseIdentifier();
-			fields.put(id, elem);
-			skipWhiteSpace();
+			HashMap<String, Type> fields = new HashMap<String, Type>();
 			boolean isOpen = false;
-			while(index < str.length() && str.charAt(index) == ',') {
-				match(",");
-				if(str.charAt(index) == '.') {
-					match("...");
-					isOpen=true;
-					break;
+			boolean firstTime = true;
+			do {
+				if (!firstTime) {
+					match(",");
+				} else {
+					firstTime = false;
 				}
-				elem = parse(typeVariables);
-				id = parseIdentifier();
-				fields.put(id, elem);
-				skipWhiteSpace();
-			}
+				skipWhiteSpace();				
+				if (str.charAt(index) == '.') {
+					match("...");
+					isOpen = true;
+					break;
+				} else {
+					Type t = parse(typeVariables);
+					String id = parseIdentifier();
+					fields.put(id, t);
+				}
+			} while (index < str.length() && str.charAt(index) == ',');
 			match("}");
-			return Record(isOpen,fields);			
-		}
+			return Record(isOpen, fields);
 		default:
 		{
 			String typeVariable = parseIdentifier();

@@ -40,19 +40,24 @@ package wyil.lang
 
 term NotT(Type)
 
+@rank(0)
 reduce NotT(AnyT):
     => VoidT
 
+@rank(0)
 reduce NotT(VoidT):
     => AnyT
 
+@rank(0)
 reduce NotT(NotT(Type t)):
     => t
 
+@rank(1)
 reduce NotT(OrT{Type... es}):
     => let ns = { NotT(e) | e in es }
        in AndT(ns)
 
+@rank(1)
 reduce NotT(AndT{Type... es}):
     => let ns = { NotT(e) | e in es }
        in OrT(ns)
@@ -63,19 +68,24 @@ reduce NotT(AndT{Type... es}):
 
 term AndT{Type...}
 
+@rank(0)
 reduce AndT{}:
     => VoidT
 
+@rank(0)
 reduce AndT{Type t}:
     => t
 
+@rank(0)
 reduce AndT{NotT(Type t1), Type t2, Type... ys}
 requires t1 == t2:
     => VoidT
 
+@rank(0)
 reduce AndT{AndT{Type... xs}, Type... ys}:
     => AndT (xs ++ ys)
 
+@rank(1)
 reduce AndT{OrT{Type... xs}, Type... ys}:
     => let zs = { AndT(x ++ ys) | x in xs }
        in OrT (zs)
@@ -86,12 +96,15 @@ reduce AndT{OrT{Type... xs}, Type... ys}:
 
 term OrT{Type...}
 
+@rank(0)
 reduce OrT{}:
     => VoidT
 
+@rank(0)
 reduce OrT{Type t}:
     => t
 
+@rank(0)
 reduce OrT{OrT{Type... xs}, Type... ys}:
     => OrT (xs ++ ys)
 
@@ -100,9 +113,11 @@ reduce OrT{OrT{Type... xs}, Type... ys}:
 // ====================================================================
 term RecordT{[string,Type]...}
 
+@rank(0)
 reduce RecordT{[string,VoidT], [string,Type]... ts}:
     => VoidT
 
+@rank(0)
 reduce AndT{RecordT{[string,Type]... t1s},
             RecordT{[string,Type]... t2s},
             Type... ts}
@@ -115,6 +130,7 @@ reduce AndT{RecordT{[string,Type]... t1s},
 requires |t1s| == |t2s| && { p[0] | p in t1s } != { p[0] | p in t2s }:
     => VoidT
 
+@rank(2)
 reduce AndT{RecordT{[string,Type]... t1s},
             RecordT{[string,Type]... t2s},
             Type... ts}
@@ -122,18 +138,21 @@ requires |t1s| == |t2s| && { p[0] | p in t1s } == { p[0] | p in t2s }:
     => let f1s = { [p1[0],AndT{p1[1],p2[1]}] | p1 in t1s, p2 in t2s, p1[0]==p2[0] }
        in AndT(RecordT(f1s)++ts)
 
+@rank(1)
 reduce AndT{RecordT{[string,Type]... t1s} r,
             NotT(RecordT{[string,Type]... t2s}),
             Type... ts}
 requires |t1s| != |t2s|:
     => AndT(r ++ ts)
 
+@rank(2)
 reduce AndT{RecordT{[string,Type]... t1s} r,
             NotT(RecordT{[string,Type]... t2s}),
             Type... ts}
 requires |t1s| == |t2s| && { p[0] | p in t1s } != { p[0] | p in t2s }:
     => AndT(r ++ ts)
 
+@rank(2)
 reduce AndT{RecordT{[string,Type]... t1s},
             NotT(RecordT{[string,Type]... t2s}),
             Type... ts}
@@ -148,28 +167,34 @@ requires |t1s| == |t2s| && { p[0] | p in t1s } == { p[0] | p in t2s }:
 // ====================================================================
 term ArrayT(Type)
 
+@rank(0)
 reduce ArrayT(VoidT):
     => VoidT
 
+@rank(0)
 reduce AndT{ArrayT(Type t1),
             ArrayT(Type t2),
             Type... ts}:
     => AndT(ArrayT(AndT{t1,t2})++ts)
 
+@rank(0)
 reduce AndT{ArrayT(Type t1),
             NotT(ArrayT(Type t2)),
             Type... ts}:
     => AndT(ArrayT(AndT{t1,NotT(t2)})++ts)
 
+@rank(0)
 reduce AndT{ArrayT(Type) t1,
            NotT(RecordT),
            Type... ts}:
     => AndT(t1 ++ ts)
 
+@rank(0)
 reduce AndT{ArrayT(Type) s, Proton p, Type... ts}
 requires !(p is AnyT):
     => VoidT
 
+@rank(0)
 reduce OrT{ArrayT(Type t1) s1, ArrayT(Type t2) s2, Type... ts}
 requires t1 == t2:
     => OrT(s1 ++ ts)
@@ -179,21 +204,25 @@ requires t1 == t2:
 // ====================================================================
 term ReferenceT(Type)
 
+@rank(0)
 reduce ReferenceT(VoidT):
     => VoidT
 
+@rank(0)
 reduce AndT{ReferenceT(Type t1),
             ReferenceT(Type t2),
             Type... ts}
 requires t1 == t2:
     => AndT(ReferenceT(t1)++ts)
 
+@rank(0)
 reduce AndT{ReferenceT(Type t1),
             ReferenceT(Type t2),
             Type... ts}
 requires t1 != t2:
-    => AndT(ReferenceT(t1)++ts)
+    => VoidT
 
+@rank(1)
 reduce AndT{ReferenceT(Type t1) r,
             NotT(ReferenceT(Type t2)),
             Type... ts}
@@ -205,16 +234,19 @@ requires t1 != t2:
 // ====================================================================
 term FunctionT[bool,[Type...],[Type...]]
 
+@rank(0)
 reduce FunctionT[bool,[Type... from],[Type... to]]
 requires VoidT in from || VoidT in to:
     => VoidT
 
+@rank(0)
 reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]],
             FunctionT[bool p2,[Type... f2s],[Type... t2s]],
             Type... ts}
 requires p1 != p2:
     => VoidT
 
+@rank(2)
 reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]],
             FunctionT[bool p2,[Type... f2s],[Type... t2s]],
             Type... ts}
@@ -224,12 +256,14 @@ requires p1 == p2:
            to   = [ OrT{t1s[i],t2s[i]} | i in 0..|t1s|]
        in AndT(FunctionT[p1,from,to] ++ ts)
 
+@rank(1)
 reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]] f,
             NotT(FunctionT[bool p2,[Type... f2s],[Type... t2s]]),
             Type... ts}
 requires p1 != p2:
     => AndT(f ++ ts)
 
+@rank(1)
 reduce AndT{FunctionT[bool p1,[Type... f1s],[Type... t1s]] f,
             FunctionT[bool p2,[Type... f2s],[Type... t2s]],
             Type... ts}
@@ -253,9 +287,11 @@ define Quark as AnyT | NullT | VoidT | BoolT | ByteT | IntT | NominalT(string)
 define Proton as Quark | RecordT{[string,Proton]...} | ArrayT(Proton) | ReferenceT(Proton) | FunctionT[bool,[Proton...],[Proton...]]
 define Atom as Proton | NotT(Proton)
 
+@rank(0)
 reduce AndT{VoidT, Type... xs}:
     => VoidT
 
+@rank(0)
 reduce AndT{AnyT, Type... xs}:
     => AndT(xs)
 
@@ -267,17 +303,21 @@ requires a1 != a2 && a1 != AnyT && a2 != AnyT:
 
 // a1 needs to be a quark here, as the rule for tuples is handled
 // above.
+@rank(0)
 reduce AndT{Quark a1, NotT(Proton a2), Type... ts}
 requires a1 == a2:
     => VoidT
 
+@rank(0)
 reduce AndT{Quark a1, NotT(Proton a2), Type... ts}
 requires a1 != a2 && a2 != AnyT:
     => AndT (a1 ++ ts)
 
+@rank(0)
 reduce OrT{AnyT, Type... xs}:
     => AnyT
 
+@rank(0)
 reduce OrT{VoidT, Type... xs}:
     => OrT(xs)
 
