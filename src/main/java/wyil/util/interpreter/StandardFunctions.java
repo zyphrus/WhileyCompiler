@@ -13,6 +13,7 @@ import wyil.lang.Constant;
 import wyil.lang.SyntaxTree;
 import wyil.lang.SyntaxTree.Location;
 import wyil.lang.Type;
+import wyil.util.TypeSystem;
 import wyil.util.interpreter.Interpreter.ConstantObject;
 import wyil.util.interpreter.Interpreter.InternalFunction;
 import static wyil.util.interpreter.Interpreter.*;
@@ -280,7 +281,7 @@ public class StandardFunctions {
 			Constant.Integer count = checkType(operands[1], context, Constant.Integer.class);
 			// Check that we have a integer count
 			int n = count.value().intValue();
-			ArrayList<Constant> values = new ArrayList<Constant>();
+			ArrayList<Constant> values = new ArrayList<>();
 			for (int i = 0; i != n; ++i) {
 				values.add(element);
 			}
@@ -290,7 +291,7 @@ public class StandardFunctions {
 	private static final class ArrayConstructor implements InternalFunction {
 		@Override
 		public Constant apply(Constant[] operands, Interpreter enclosing, Location<Operator> context) {
-			ArrayList<Constant> values = new ArrayList<Constant>();
+			ArrayList<Constant> values = new ArrayList<>();
 			for (Constant c : operands) {
 				values.add(c);
 			}
@@ -303,9 +304,10 @@ public class StandardFunctions {
 	// ====================================================================================
 	private static final class RecordConstructor implements InternalFunction {
 		@Override
-		public Constant apply(Constant[] operands, Interpreter enclosing, Location<Operator> context) {
-			Type.EffectiveRecord type = (Type.EffectiveRecord) context.getType();
-			HashMap<String, Constant> values = new HashMap<String, Constant>();
+		public Constant apply(Constant[] operands, Interpreter enclosing, Location<Operator> context) throws ResolveError {
+			TypeSystem types = enclosing.getTypeSystem();
+			Type.EffectiveRecord type = types.expandAsEffectiveRecord(context.getType());
+			HashMap<String, Constant> values = new HashMap<>();
 			String[] fields = type.getFieldNames();
 			for (int i = 0; i != operands.length; ++i) {
 				values.put(fields[i], operands[i]);

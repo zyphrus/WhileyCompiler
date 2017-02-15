@@ -18,6 +18,7 @@ import wyfs.util.Trie;
 import wyil.checks.CoercionCheck;
 import wyil.checks.ModuleCheck;
 import wyil.lang.*;
+import wyil.util.BackPropagation;
 import wyil.util.MoveAnalysis;
 import wyil.util.TypeSystem;
 import wybs.lang.*;
@@ -221,6 +222,7 @@ public final class CompileTask implements Build.Task {
 				new DefiniteAssignmentAnalysis(wf).check();
 				WyilFile wyil = generator.generate(wf, target);
 				new MoveAnalysis(this).apply(wyil);
+				new BackPropagation(this).apply(wyil);
 				target.write(wyil);
 			}
 		}

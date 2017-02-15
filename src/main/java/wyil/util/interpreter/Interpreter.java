@@ -67,6 +67,10 @@ public class Interpreter {
 		this.operators = StandardFunctions.standardFunctions;
 	}
 
+	public TypeSystem getTypeSystem() {
+		return typeSystem;
+	}
+
 	private enum Status {
 		RETURN,
 		BREAK,
