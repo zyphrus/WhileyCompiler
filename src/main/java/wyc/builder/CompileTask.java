@@ -220,6 +220,7 @@ public final class CompileTask implements Build.Task {
 				WhileyFile wf = source.read();
 				new DefiniteAssignmentAnalysis(wf).check();
 				new ModuleCheck(wf).check();
+				new LoopInvariantGenerator(wf).generate();
 				WyilFile wyil = generator.generate(wf, target);
 				new MoveAnalysis(this).apply(wyil);
 				target.write(wyil);
