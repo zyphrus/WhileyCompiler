@@ -28,7 +28,13 @@ public class LoopInvariantGenerator {
 
     public void generate() {
         for (WhileyFile.FunctionOrMethodOrProperty method : whileyFile.declarations(WhileyFile.FunctionOrMethodOrProperty.class)) {
-            findLoops(method.statements, new Context());
+            Context context = new Context();
+
+            for (WhileyFile.Parameter param : method.parameters) {
+                context.putParam(param.name());
+            }
+
+            findLoops(method.statements, context);
         }
     }
 
@@ -62,10 +68,18 @@ public class LoopInvariantGenerator {
                 if (variant.getValue() != null && variant.getKey() instanceof Expr.AssignedVariable) {
                     SequenceDirection direction = determineSequenceDirection( (Expr.AssignedVariable) variant.getKey(), variant.getValue());
 
-                    // TODO: get the value of the variable before entering loop, do not assume it is 0
+                    // TODO: detect if the value before the loop is safe or not
+                    // could extend this to create a ghost variable instead, however for now keeping to safe
+                    Expr preLoopValue = context.getValue(((Expr.AssignedVariable) variant.getKey()).var);
+
+                    if (!checkPreLoopValue(preLoopValue, context)) {
+                        System.err.println("Oh my, the entrant value is not safe for " + variant.getKey() + " with " + preLoopValue );
+                        continue;
+                    }
+
                     // NOTE: This works very well with While_Valid_[1,3].whiley
                     whileStmt.invariants.add(
-                            new Expr.BinOp(direction.toBOp(), variant.getKey(), context.getValue(((Expr.AssignedVariable) variant.getKey()).var),
+                            new Expr.BinOp(direction.toBOp(), variant.getKey(), preLoopValue,
                                     new GeneratedAttribute("Inferred starting boundary of variable " + variant.getKey() + " from loop body"),
                                     whileStmt.attribute(Attribute.Source.class))
                     );
@@ -104,8 +118,7 @@ public class LoopInvariantGenerator {
                 Expr rval = rvals.next();
 
                 if (context.hasValue(lval.toString())) {
-                    System.err.println("Oh dear, two assignments outside of the loop for " + lval);
-                    System.err.println(rval.attribute(Attribute.Source.class));
+                    System.err.println("Oh dear, two assignments for " + lval + " removing from set of safe variants");
                     context.putValue(lval.toString(), null);
                     continue;
                 }
@@ -135,28 +148,11 @@ public class LoopInvariantGenerator {
     }
 
     private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, Context context) {
-        if (stmt instanceof Stmt.IfElse) {
-            // not definite that the variable will variate every iteration
-//            Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
-//            findVariants(stmtIfElse.trueBranch, variants);
-//            findVariants(stmtIfElse.falseBranch, variants);
-        } else if (stmt instanceof Stmt.NamedBlock) {
+        // only check the guaranteed sections of the loop
+        // and ignoring any branches or inner-loops to lessen complexity of identifying variants
+        if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
             findVariants(namedBlock.body, variants, context);
-        } else if (stmt instanceof Stmt.While) {
-            // not definite that the variable will variate every iteration
-//            Stmt.While whileStmt = (Stmt.While) stmt;
-//            findVariants(whileStmt.body, variants);
-        } else if (stmt instanceof Stmt.Switch) {
-            // not definite that the variable will variate every iteration
-//            Stmt.Switch switchStmt = (Stmt.Switch) stmt;
-//            for (Stmt.Case caseStmt : switchStmt.cases) {
-//                findVariants(caseStmt.stmts, variants);
-//            }
-        } else if (stmt instanceof Stmt.DoWhile) {
-            // not definite that the variable will variate every iteration
-//            Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
-//            findVariants(whileStmt.body, variants);
         } else if (stmt instanceof Stmt.Assign) {
             // skip
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
@@ -181,23 +177,64 @@ public class LoopInvariantGenerator {
 
                     if (duplicate.isPresent()) {
                         System.err.println("Oh bother, two assignments inside the loop for " + lval);
-                        System.err.println(rval.attribute(Attribute.Source.class));
+                        // invalidate the variant as assigning twice makes too complicated to handle
+                        // and it should be the programmer to navigate this situation
                         variants.put(duplicate.get(), null);
                         continue;
                     }
 
+                    // must be a variable of int type
+                    // must have a simple mutation
                     if (lval.result().equals(wyil.lang.Type.T_INT)
                             // restrict variants to values defined out of the loop
                             && context.hasValue(assignedVariable.var)
+                            // make sure that they have a 'simple' assignment
                             && context.getValue(assignedVariable.var) != null
                             && isSimpleMutationOfVar(assignedVariable, rval)) {
                         variants.put(lval, rval);
                     }
                 }
-                // must be a variable of int type
-                // must have a simple mutation
             }
         }
+    }
+
+    /**
+     * Determine if an expression is safe to be used as the value of variable
+     * before the loop
+     *
+     * The safety check is conservative check of the expression for simple expressions
+     * such as constants, lengths of arrays, use of parameters and checking referenced
+     * local variables.
+     *
+     * @param preloop expression of the value of the variant before the loop
+     * @param context
+     * @return true if the expression is determined to be safe, otherwise false.
+     */
+    private boolean checkPreLoopValue(Expr preloop, Context context) {
+        if (preloop instanceof Expr.Constant) {
+            return true;
+        } else if (preloop instanceof Expr.UnOp) {
+            Expr.UnOp unOpExpr = (Expr.UnOp) preloop;
+            switch (unOpExpr.op) {
+                case ARRAYLENGTH:
+                    return checkPreLoopValue(unOpExpr.mhs, context);
+                default:
+                    return true;
+            }
+        } else if (preloop instanceof Expr.LocalVariable) {
+            Expr.LocalVariable localVar = (Expr.LocalVariable) preloop;
+
+            if (context.hasParam(localVar.var)) {
+                return true;
+            }
+
+            Expr e = context.getValue(localVar.var);
+            if (e != null) {
+                return checkPreLoopValue(e, context);
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -327,6 +364,7 @@ public class LoopInvariantGenerator {
         private final Context parent;
 
         private Map<String, Expr> variables = new HashMap<>();
+        private Set<String> parameters = new HashSet<>();
 
         public Context() {
             this.parent = null;
@@ -356,6 +394,21 @@ public class LoopInvariantGenerator {
 
         void putValue(String variable, Expr expr) {
             this.variables.put(variable, expr);
+        }
+
+
+        void putParam(String variable) {
+            if (this.parent != null) {
+                throw new IllegalStateException("Only the root node can put parameters to the context");
+            }
+            this.parameters.add(variable);
+        }
+
+        boolean hasParam(String variable) {
+            if (this.parent != null) {
+                return this.parent.hasParam(variable);
+            }
+            return this.parameters.contains(variable);
         }
     }
 }
