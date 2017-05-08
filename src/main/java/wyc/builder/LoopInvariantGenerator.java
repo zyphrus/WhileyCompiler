@@ -66,25 +66,12 @@ public class LoopInvariantGenerator {
             for (Map.Entry<Expr.LVal, Expr> variant : variants.entrySet()) {
 
                 if (variant.getValue() != null && variant.getKey() instanceof Expr.AssignedVariable) {
-                    SequenceDirection direction = determineSequenceDirection( (Expr.AssignedVariable) variant.getKey(), variant.getValue());
+                    Expr invariant = startingBoundInvariant((Expr.AssignedVariable) variant.getKey(), variant.getValue(), context);
 
-                    // TODO: detect if the value before the loop is safe or not
-                    // could extend this to create a ghost variable instead, however for now keeping to safe
-                    Expr preLoopValue = context.getValue(((Expr.AssignedVariable) variant.getKey()).var);
-
-                    if (!checkPreLoopValue(preLoopValue, context)) {
-                        System.err.println("Oh my, the entrant value is not safe for " + variant.getKey() + " with " + preLoopValue );
-                        continue;
+                    if (invariant != null) {
+                        invariant.attributes().add(whileStmt.attribute(Attribute.Source.class));
+                        whileStmt.invariants.add(invariant);
                     }
-
-                    // NOTE: This works very well with While_Valid_[1,3].whiley
-                    whileStmt.invariants.add(
-                            new Expr.BinOp(direction.toBOp(), variant.getKey(), preLoopValue,
-                                    new GeneratedAttribute("Inferred starting boundary of variable " + variant.getKey() + " from loop body"),
-                                    whileStmt.attribute(Attribute.Source.class))
-                    );
-
-                    System.out.println(direction);
                 }
             }
 
@@ -133,6 +120,44 @@ public class LoopInvariantGenerator {
         }
     }
 
+    /**
+     * Checks the properties founds to see if the starting bound invariant can be generated
+     * from inspecting the AST
+     *
+     * This checks:
+     *  * if the variant can determine which direction of the mutation is being
+     *    applied every iteration.
+     *  * if the value of the variant at the start of the loop can be safely used and
+     *    that that value will not change during the loop.
+     *
+     * @param variant variable that changes in the loop
+     * @param variantExpr the expression that mutates the variant
+     * @param context a store of local variables and paramters
+     * @return expression of invariant, otherwise null
+     */
+    private Expr startingBoundInvariant(Expr.AssignedVariable variant, Expr variantExpr, Context context) {
+
+        // determine the direction of the mutation, + or -
+        SequenceDirection direction = determineSequenceDirection(variant, variantExpr);
+        // check if the mutation is invalid
+        if (direction == SequenceDirection.UNKNOWN) {
+            System.err.println("unable to determine sequence direction of variant");
+            return null;
+        }
+
+        // TODO: detect if the value before the loop is safe or not
+        // could extend this to create a ghost variable instead, however for now keeping to safe
+        Expr preLoopValue = context.getValue(variant.var);
+        if (!checkPreLoopValue(preLoopValue, context)) {
+            System.err.println("Oh my, the entrant value is not safe for " + variant + " with " + preLoopValue );
+            return null;
+        }
+
+        // given the
+        return new Expr.BinOp(direction.toBOp(), variant, preLoopValue,
+                        new GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
+    }
+
     private Map<Expr.LVal, Expr> findVariants(Stmt.While whileStmt, Context context) {
         Map<Expr.LVal, Expr> variants = new HashMap<>();
 
@@ -147,6 +172,15 @@ public class LoopInvariantGenerator {
         }
     }
 
+    /**
+     * collect variants and their mutating expressions
+     *
+     * If a variant is found to have two
+     *
+     * @param stmt statement to be checked
+     * @param variants map of variants already identified
+     * @param context collection of local variables and parameters
+     */
     private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
@@ -154,13 +188,12 @@ public class LoopInvariantGenerator {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
             findVariants(namedBlock.body, variants, context);
         } else if (stmt instanceof Stmt.Assign) {
-            // skip
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
 
             Iterator<Expr.LVal> lvals = stmtAssign.lvals.iterator();
             Iterator<Expr> rvals = stmtAssign.rvals.iterator();
-            // would of liked to chain these two lists together
 
+            // would of liked to chain these two lists together
             while (lvals.hasNext() && rvals.hasNext()) {
                 Expr.LVal lval = lvals.next();
                 Expr rval = rvals.next();
@@ -175,23 +208,21 @@ public class LoopInvariantGenerator {
                             .filter(e ->  e.var.equals(assignedVariable.var))
                             .findFirst();
 
-                    if (duplicate.isPresent()) {
-                        System.err.println("Oh bother, two assignments inside the loop for " + lval);
-                        // invalidate the variant as assigning twice makes too complicated to handle
-                        // and it should be the programmer to navigate this situation
-                        variants.put(duplicate.get(), null);
-                        continue;
-                    }
-
                     // must be a variable of int type
                     // must have a simple mutation
                     if (lval.result().equals(wyil.lang.Type.T_INT)
+                            && !duplicate.isPresent()
                             // restrict variants to values defined out of the loop
                             && context.hasValue(assignedVariable.var)
                             // make sure that they have a 'simple' assignment
                             && context.getValue(assignedVariable.var) != null
-                            && isSimpleMutationOfVar(assignedVariable, rval)) {
+                            && isSimpleMutationOfVar(assignedVariable, rval)
+                            ) {
                         variants.put(lval, rval);
+                    } else {
+                        // invalidate the variant to be a candidate to check
+                        // since the mutations are too complex to be handled
+                        variants.put(lval, null);
                     }
                 }
             }
@@ -238,29 +269,29 @@ public class LoopInvariantGenerator {
     }
 
     /**
+     * Determines if the expression is a simple mutation of the given variable
      *
-     *
-     * @param var
-     * @param expr
-     * @return
+     * @param var variable that is being assigned
+     * @param expr mutation expression
+     * @return true if the assignment is a simple mutation
      */
     private boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr) {
-        return isSimpleMutationOfVar(var, expr, false);
+        return isSimpleMutationOfVar(var, expr, true);
     }
 
     /**
      * Determines if the expression is a simple mutation of the given variable
      *
-     * A simple mutation is defined as the use of addition or subtraction of constants and the assigned variable
-     *
-     * The given expression must be contained in the expression.
+     * A simple mutation is defined as the use of addition or subtraction of constants and the assigned variable.
+     * This is
+     * The given variable must be contained within the expression but cannot be the whole expression.
      *
      * This method can give a false positive in the case of <code>x - x</code>
      *
-     * @param var
-     * @param expr
-     * @param topLevel
-     * @return
+     * @param var variable that is being assigned
+     * @param expr mutation expression
+     * @param topLevel true if the current mutation is a sub-expression of the total expression, otherwise false
+     * @return true if the assignment is a simple mutation, otherwise false
      */
     private boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr, boolean topLevel) {
         if (expr instanceof Expr.Constant) {
@@ -275,6 +306,7 @@ public class LoopInvariantGenerator {
             return isSimpleMutationOfVar(var, binop.lhs, false) && isSimpleMutationOfVar(var, binop.rhs, false);
         } else if (expr instanceof Expr.LocalVariable) {
             Expr.LocalVariable local = (Expr.LocalVariable) expr;
+            // only allow reference to the variable that is being assigned to for simplicity
             return local.var.equals(var.var);
         }
         return false;
