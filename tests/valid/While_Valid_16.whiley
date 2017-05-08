@@ -12,8 +12,7 @@ ensures all { x in 0 .. |src| | result[x] > 0 }:
     int[] osrc = src
     //
     while i < |src| 
-        where i >= 0 && i <= |src|
-        where |src| == |osrc|
+        where i <= |src|
         where all { x in 0 .. i | src[x] > 0 }:
         //
         src[i] = src[i] + 1

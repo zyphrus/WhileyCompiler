@@ -5,7 +5,7 @@ function f(int v) -> (int r)
 ensures r >= 0:
     //
     int i = 0
-    while i < 100 where i >= 0:
+    while i < 100:
         i = i - 1
         if i == v:
             break

@@ -3,7 +3,7 @@
 function extract(int[] ls) -> int[]:
     int i = 0
     int[] r = [0; |ls|]
-    while i < |r| where i >= 0:
+    while i < |r|:
         r[i] = 1
         i = i + 1
     return r
