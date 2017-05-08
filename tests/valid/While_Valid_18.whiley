@@ -3,8 +3,7 @@ type nat is (int x) where x >= 0
 function match(byte[] data, nat offset, nat end) -> int:
     nat pos = end
     int len = 0
-    while offset < pos && pos < |data| && data[offset] == data[pos] 
-        where (pos >= 0) && (offset >= 0):
+    while offset < pos && pos < |data| && data[offset] == data[pos]:
         //
         offset = offset + 1
         pos = pos + 1
