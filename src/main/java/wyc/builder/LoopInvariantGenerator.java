@@ -59,23 +59,6 @@ public class LoopInvariantGenerator {
         } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
             findLoops(namedBlock.body, new Context(context));
-        } else if (stmt instanceof Stmt.While) {
-            Stmt.While whileStmt = (Stmt.While) stmt;
-            // handle the while loop
-            Map<Expr.LVal, Expr> variants = findVariants(whileStmt, context);
-            for (Map.Entry<Expr.LVal, Expr> variant : variants.entrySet()) {
-
-                if (variant.getValue() != null && variant.getKey() instanceof Expr.AssignedVariable) {
-                    Expr invariant = startingBoundInvariant((Expr.AssignedVariable) variant.getKey(), variant.getValue(), context);
-
-                    if (invariant != null) {
-                        invariant.attributes().add(whileStmt.attribute(Attribute.Source.class));
-                        whileStmt.invariants.add(invariant);
-                    }
-                }
-            }
-
-            findLoops(whileStmt.body, new Context(context));
         } else if (stmt instanceof Stmt.Switch) {
             Stmt.Switch switchStmt = (Stmt.Switch) stmt;
             for (Stmt.Case caseStmt : switchStmt.cases) {
@@ -117,6 +100,23 @@ public class LoopInvariantGenerator {
                     context.putValue(((Expr.AssignedVariable)lval).var, rval);
                 }
             }
+        } else if (stmt instanceof Stmt.While) {
+            Stmt.While whileStmt = (Stmt.While) stmt;
+            // handle the while loop
+            Map<Expr.LVal, Expr> variants = findVariants(whileStmt, context);
+            for (Map.Entry<Expr.LVal, Expr> variant : variants.entrySet()) {
+
+                if (variant.getValue() != null && variant.getKey() instanceof Expr.AssignedVariable) {
+                    Expr invariant = startingBoundInvariant((Expr.AssignedVariable) variant.getKey(), variant.getValue(), context);
+
+                    if (invariant != null) {
+                        invariant.attributes().add(whileStmt.attribute(Attribute.Source.class));
+                        whileStmt.invariants.add(invariant);
+                    }
+                }
+            }
+
+            findLoops(whileStmt.body, new Context(context));
         }
     }
 
@@ -161,14 +161,14 @@ public class LoopInvariantGenerator {
     private Map<Expr.LVal, Expr> findVariants(Stmt.While whileStmt, Context context) {
         Map<Expr.LVal, Expr> variants = new HashMap<>();
 
-        findVariants(whileStmt.body, variants, context);
+        findVariants(whileStmt.body, variants, true, context);
 
         return variants;
     }
 
-    private void findVariants(List<Stmt> stmts, Map<Expr.LVal, Expr> variants, Context context) {
+    private void findVariants(List<Stmt> stmts, Map<Expr.LVal, Expr> variants, boolean topLevel, Context context) {
         for (Stmt stmt : stmts) {
-            findVariants(stmt, variants, context);
+            findVariants(stmt, variants, topLevel, context);
         }
     }
 
@@ -177,16 +177,35 @@ public class LoopInvariantGenerator {
      *
      * If a variant is found to have two
      *
+     * If not in the top level, variants found to be mutated in sub-scopes will
+     * be removed from the candidate pool as they are too hard to determine if they are
+     * safe for invariant generation.
+     *
      * @param stmt statement to be checked
      * @param variants map of variants already identified
+     * @param topLevel check to make sure we are at the top level of the while loop
      * @param context collection of local variables and parameters
      */
-    private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, Context context) {
+    private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, boolean topLevel, Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
-        if (stmt instanceof Stmt.NamedBlock) {
+        if (stmt instanceof Stmt.IfElse) {
+            Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
+
+            findVariants(stmtIfElse.trueBranch, variants, false, context);
+            findVariants(stmtIfElse.falseBranch, variants, false, context);
+        } else if (stmt instanceof Stmt.Switch) {
+            Stmt.Switch switchStmt = (Stmt.Switch) stmt;
+            for (Stmt.Case caseStmt : switchStmt.cases) {
+                findVariants(caseStmt.stmts, variants, false, context);
+            }
+        } else if (stmt instanceof Stmt.DoWhile) {
+            Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
+            // handle the do-while loop ?
+            findVariants(whileStmt.body, variants, false, context);
+        } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
-            findVariants(namedBlock.body, variants, context);
+            findVariants(namedBlock.body, variants, topLevel, context);
         } else if (stmt instanceof Stmt.Assign) {
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
 
@@ -217,6 +236,9 @@ public class LoopInvariantGenerator {
                             // make sure that they have a 'simple' assignment
                             && context.getValue(assignedVariable.var) != null
                             && isSimpleMutationOfVar(assignedVariable, rval)
+                            // ensure that variants found to be assigned in inner branches/loops are invalidated as
+                            // candidates
+                            && topLevel
                             ) {
                         variants.put(lval, rval);
                     } else {
