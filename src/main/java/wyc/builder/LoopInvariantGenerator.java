@@ -1,6 +1,7 @@
 package wyc.builder;
 
 import wybs.lang.Attribute;
+import wyc.builder.invariants.ArrayLengthCopyInvariant;
 import wyc.builder.invariants.InvariantGenerator;
 import wyc.builder.invariants.StartingBoundInvariant;
 import wyc.lang.Expr;
@@ -30,6 +31,7 @@ public class LoopInvariantGenerator {
 
         // TODO: allow this to be user controlled list of invariant generators
         this.generators.add(new StartingBoundInvariant());
+        this.generators.add(new ArrayLengthCopyInvariant());
     }
 
     public void generate() {
