@@ -4,7 +4,6 @@ function extract(int[] ls) -> nat[]:
     int i = 0
     int[] r = [0; |ls|]
     while i < |ls| 
-        where |r| == |ls|
         where all { j in 0..|r| | r[j] >= 0 }:
         //
         if ls[i] < 0:
