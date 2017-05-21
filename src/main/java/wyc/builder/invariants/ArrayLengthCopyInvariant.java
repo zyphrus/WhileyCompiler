@@ -26,9 +26,13 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
     public List<Expr> generateInvariant(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
-        Map<Expr, Expr> l = findGeneratedArrays(whileStmt, context);
+        Map<Expr.LocalVariable, Expr.LocalVariable> l = findGeneratedArrays(whileStmt, context);
 
-        for (Map.Entry<Expr, Expr> entry : l.entrySet()) {
+        for (Map.Entry<Expr.LocalVariable, Expr.LocalVariable> entry : l.entrySet()) {
+
+            if (entry.getValue() == null) {
+                continue;
+            }
 
             Expr lengthOfLocal = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getKey());
             Expr lengthOfBase = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getValue());
@@ -41,21 +45,21 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         return invariants;
     }
 
-    private Map<Expr, Expr> findGeneratedArrays(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
-        Map<Expr, Expr> variants = new HashMap<>();
+    private Map<Expr.LocalVariable, Expr.LocalVariable> findGeneratedArrays(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+        Map<Expr.LocalVariable, Expr.LocalVariable> variants = new HashMap<>();
 
         this.findGeneratedArrays(whileStmt.body, variants, true, context);
 
         return variants;
     }
 
-    private void findGeneratedArrays(List<Stmt> stmts, Map<Expr, Expr> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
+    private void findGeneratedArrays(List<Stmt> stmts, Map<Expr.LocalVariable, Expr.LocalVariable> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
         for (Stmt stmt : stmts) {
             findGeneratedArrays(stmt, variants, topLevel, context);
         }
     }
 
-    private void findGeneratedArrays(Stmt stmt, Map<Expr, Expr> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
+    private void findGeneratedArrays(Stmt stmt, Map<Expr.LocalVariable, Expr.LocalVariable> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
@@ -78,26 +82,34 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         } else if (stmt instanceof Stmt.Assign) {
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
 
-            Iterator<Expr.LVal> lvals = stmtAssign.lvals.iterator();
-            Iterator<Expr> rvals = stmtAssign.rvals.iterator();
-
             // would of liked to chain these two lists together
-            while (lvals.hasNext() && rvals.hasNext()) {
-                Expr.LVal lval = lvals.next();
-                Expr rval = rvals.next();
+            for (Expr.LVal lval : stmtAssign.lvals) {
 
                 if (lval instanceof Expr.IndexOf) {
                     Expr.IndexOf indexOf = (Expr.IndexOf) lval;
 
+
                     if (indexOf.src instanceof Expr.LocalVariable) {
                         Expr.LocalVariable local = (Expr.LocalVariable) indexOf.src;
 
-                        Expr name = getArrayGeneratorName(context, local);
+                        Optional<Expr.LocalVariable> duplicate = variants.keySet().stream()
+                                .filter(k -> k.var.equals(local.var))
+                                .findFirst();
 
-                        if (name != null) {
+                        Expr.LocalVariable name = getArrayGeneratorName(context, local);
+
+                        if (name != null &&
+                                (!duplicate.isPresent() || duplicate.get() != null)) {
                             variants.put(local, name);
+                        } else {
+                            variants.put(local, null);
                         }
                     }
+                } else if (lval instanceof Expr.AssignedVariable) {
+                    Expr.AssignedVariable assignedVariable = (Expr.AssignedVariable) lval;
+
+                    // remove from variants
+                    variants.put(new Expr.LocalVariable(assignedVariable.var), null);
                 }
             }
         }
@@ -109,7 +121,7 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
      * @param context
      * @param local The local variable to be checked
      */
-    private Expr getArrayGeneratorName(LoopInvariantGenerator.Context context, Expr.LocalVariable local) {
+    private Expr.LocalVariable getArrayGeneratorName(LoopInvariantGenerator.Context context, Expr.LocalVariable local) {
 
         LoopInvariantGenerator.Variable var = context.getValue(local.var);
 
@@ -136,6 +148,9 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
                     }
                 }
             }
+        } else if (var.getAssigned() instanceof Expr.LocalVariable) {
+            // second case where the array is a full copy of the other array
+            return (Expr.LocalVariable) var.getAssigned();
         }
 
         return null;
