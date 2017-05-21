@@ -110,6 +110,13 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
 
                     // remove from variants
                     variants.put(new Expr.LocalVariable(assignedVariable.var), null);
+
+                    // removes variants that rely on this value
+                    variants.entrySet()
+                            .stream()
+                            .filter(entry -> entry.getValue() != null && entry.getValue().var.equals(assignedVariable.var))
+                            .map(entry -> entry.getKey())
+                            .forEach(key -> variants.put(key, null));
                 }
             }
         }
