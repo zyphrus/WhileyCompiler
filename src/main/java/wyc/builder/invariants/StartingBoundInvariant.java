@@ -262,10 +262,14 @@ public class StartingBoundInvariant implements InvariantGenerator {
 
 
     private SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
-        BigInteger exprEval = evalConstExpr(variable, expr);
-        if (exprEval.compareTo(BigInteger.ZERO) > 0) {
+        BigInteger exprValInitial = evalConstExpr(variable, expr, BigInteger.ZERO);
+        BigInteger exprValStep = evalConstExpr(variable, expr, exprValInitial);
+
+        BigInteger difference = exprValStep.subtract(exprValInitial);
+
+        if (difference.compareTo(BigInteger.ZERO) > 0) {
             return SequenceDirection.ASCENDING;
-        } else if (exprEval.compareTo(BigInteger.ZERO) < 0)  {
+        } else if (difference.compareTo(BigInteger.ZERO) < 0)  {
             return SequenceDirection.DESCENDING;
         } else {
             return SequenceDirection.UNKNOWN;
@@ -281,14 +285,14 @@ public class StartingBoundInvariant implements InvariantGenerator {
      * @param expr
      * @return the change in value the variable will
      */
-    private BigInteger evalConstExpr(Expr.AssignedVariable variable, Expr expr) {
+    private BigInteger evalConstExpr(Expr.AssignedVariable variable, Expr expr, BigInteger varValue) {
         if (expr instanceof Expr.BinOp) {
             Expr.BinOp binop = (Expr.BinOp) expr;
             switch (binop.op) {
                 case ADD:
-                    return evalConstExpr(variable, binop.lhs).add(evalConstExpr(variable, binop.rhs));
+                    return evalConstExpr(variable, binop.lhs, varValue).add(evalConstExpr(variable, binop.rhs, varValue));
                 case SUB:
-                    return evalConstExpr(variable, binop.lhs).subtract(evalConstExpr(variable, binop.rhs));
+                    return evalConstExpr(variable, binop.lhs, varValue).subtract(evalConstExpr(variable, binop.rhs, varValue));
                 default:
                     throw new UnsupportedOperationException();
             }
@@ -299,7 +303,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
             Expr.LocalVariable local = (Expr.LocalVariable) expr;
 
             if (local.var.equals(variable.var)) {
-                return BigInteger.ZERO;
+                return varValue;
             } else {
                 throw new UnsupportedOperationException();
             }
