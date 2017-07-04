@@ -12,6 +12,6 @@ function minus(int i) -> (int r)
     return n
 
 public export method test():
-    assert(sum(10) == -10)
-    assert(sum(1) == -1)
+    assert(minus(10) == -10)
+    assert(minus(1) == -1)
 
