@@ -13,6 +13,7 @@ ensures all { x in 0 .. |src| | result[x] > 0 }:
     //
     while i < |src| 
         where i <= |src|
+        where |osrc| == |src|
         where all { x in 0 .. i | src[x] > 0 }:
         //
         src[i] = src[i] + 1
