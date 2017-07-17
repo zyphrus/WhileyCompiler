@@ -6,7 +6,7 @@ ensures |rs| > 0:
     //
     int i = 0
     int[] r = [1; |ls| + 1]
-    while i < |ls| where |r| == |ls| + 1:
+    while i < |ls| where |r| == |ls| + 1 && i >= 0:
         r[i] = ls[i]
         i = i + 1
     return r

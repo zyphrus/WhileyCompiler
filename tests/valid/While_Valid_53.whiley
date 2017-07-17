@@ -6,6 +6,7 @@ ensures all { k in 0..|witness| | xs[k] == xs[witness[k]] }:
     int[] ws = [0; |xs|]
     //
     while i < |xs|
+    where i >= 0 && |xs| == |ws|
     where all { j in 0..i | xs[j] == xs[ws[j]] }:
         ws[i] = i
         i = i + 1

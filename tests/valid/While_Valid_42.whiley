@@ -11,7 +11,7 @@ ensures all { i in 0 .. |xs| | ys[i] == xs[|xs| - (i+1)] }:
     //
     while i < |xs|
     // Index is positive and at most one past length of list
-    where i <= |xs| && |xs| == |zs|
+    where i >= 0 && i <= |xs| && |xs| == |zs|
     // Every element upto (but not including) i is reversed
     where all { j in 0 .. i | xs[j] == zs[|xs| - (j+1)]}:
         //

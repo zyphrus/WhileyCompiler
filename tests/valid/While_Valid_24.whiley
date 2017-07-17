@@ -5,7 +5,7 @@ function indexOf(int[] xs, int x) -> (int|null result)
 ensures result is null || xs[result] == x:
     //
     int i = 0
-    while i < |xs|:
+    while i < |xs| where i >= 0:
         if xs[i] == x:
             return i
         i = i + 1

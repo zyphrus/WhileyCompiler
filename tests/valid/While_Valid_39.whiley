@@ -5,7 +5,7 @@ ensures r ==> some { i in 0..|xs| | xs[i] == x }:
     //
     int i = 0
     //
-    while i < |xs|:
+    while i < |xs| where i >= 0:
         if xs[i] == x:
             return true
         i = i + 1

@@ -5,7 +5,7 @@ ensures r ==> some { i in 0 .. |items| | item == items[i] }:
     //
     int i = 0
     //
-    while i < |items|:
+    while i < |items| where i >= 0:
         if items[i] == item:
             return true
         i = i + 1

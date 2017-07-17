@@ -7,7 +7,7 @@ ensures 0 <= r && r <= |items|
 ensures r != |items| ==> items[r] == item:
     //
     int i = 0
-    while i < |items| where i <= |items|:
+    while i < |items| where 0 <= i && i <= |items|:
         if items[i] == item:
             assert 0 <= i && i < |items|
             break
