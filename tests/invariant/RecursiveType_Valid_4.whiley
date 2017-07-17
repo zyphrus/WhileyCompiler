@@ -10,7 +10,7 @@ function evaluate(Expr e) -> null | Value:
         if e is Expr[]:
             Value[] r = [0;|e|]
             nat i = 0
-            while i < |e| where |e| == |r|:
+            while i < |e|:
                 null|Value v = evaluate(e[i])
                 if v is null:
                     return v

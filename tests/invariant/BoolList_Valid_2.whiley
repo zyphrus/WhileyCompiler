@@ -1,7 +1,7 @@
 function play(bool[] board) -> bool[]:
     bool[] nboard = board
     int i = 0
-    while i < |board| where i >= 0 && |board| == |nboard|:
+    while i < |board|:
         if isAlive(i, board):
             nboard[i] = true
         else:

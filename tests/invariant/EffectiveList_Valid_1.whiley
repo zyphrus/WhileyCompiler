@@ -4,9 +4,7 @@ type nbool is bool|null
 function f(int[] xs) -> nbool[]:
     nbool[] r = [false; |xs|]
     int i = 0
-    while i < |xs|
-        where i >= 0
-        where |xs| == |r|:
+    while i < |xs|:
         //
         if xs[i] < 0:
             r[i] = true

@@ -9,7 +9,7 @@ ensures all { i in 0..|ys| | ys[i] >= 0 }:
     // First, count positive elements of xs
     // ======================================================
     while i < |xs| 
-        where i >= 0 && i <= |xs| && |xs| == size 
+        where i <= |xs| && |xs| == size 
         where count >= 0 && count <= i:
         //
         if xs[i] >= 0:
@@ -22,7 +22,7 @@ ensures all { i in 0..|ys| | ys[i] >= 0 }:
     i = 0
     int j = 0
     while j < |zs|
-        where i >= 0 && j >= 0 && j <= |zs| && |zs| == count
+        where j <= |zs| && |zs| == count
         where all { k in 0 .. j | zs[k] >= 0 }:
         if i < |xs| && xs[i] >= 0:
             zs[j] = xs[i]
