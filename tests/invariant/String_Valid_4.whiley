@@ -2,7 +2,7 @@
 
 public function repl(int old, int n, int[] str) -> int[]:
     int i = 0
-    while i < |str| where i >= 0:
+    while i < |str|:
         if str[i] == old:
             str[i] = n
         i = i + 1

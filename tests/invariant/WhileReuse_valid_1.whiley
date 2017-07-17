@@ -1,5 +1,4 @@
 
-
 function reverse(int[] ls) -> int[]:
     int i = |ls|
     int[] r = [0; |ls|]
@@ -7,6 +6,19 @@ function reverse(int[] ls) -> int[]:
         int item = ls[|ls|-i]
         i = i - 1
         r[i] = item
+
+    i = |ls|
+    while i > 0:
+        int item = ls[|ls|-i]
+        i = i - 1
+        r[i] = item
+
+    i = |ls|
+    while i > 0:
+        int item = ls[|ls|-i]
+        i = i - 1
+        r[i] = item
+
     return r
 
 public export method test() :

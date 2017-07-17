@@ -29,7 +29,7 @@ public function toByte(char v) -> byte:
 public function toBytes(string s) -> byte[]:
     byte[] r = [0b; |s|]
     int i = 0
-    while i < |s| where i >= 0:
+    while i < |s|:
         r[i] = toByte(s[i])
         i = i + 1
     return r

@@ -2,7 +2,7 @@
 
 public function has(int c, int[] str) -> bool:
     int i = 0
-    while i < |str| where i >= 0:
+    while i < |str|:
         if str[i] == c:
             return true
         i = i + 1

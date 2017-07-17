@@ -26,7 +26,7 @@ function and(byte b1, byte b2) -> byte:
 
 public export method test() :
     int i = 0
-    while i < |constants| where i >= 0:
+    while i < |constants|:
         byte constant_i = constants[i]
         int j = 0
         while j < 9:

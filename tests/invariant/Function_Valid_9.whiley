@@ -3,9 +3,7 @@ type nat is int
 function g(nat[] xs) -> nat[]:
     nat[] ys = [0; |xs|]
     int i = 0
-    while i < |xs|
-        where i >= 0
-        where |xs| == |ys|:
+    while i < |xs|:
         //
         if xs[i] > 1:
             ys[i] = xs[i]

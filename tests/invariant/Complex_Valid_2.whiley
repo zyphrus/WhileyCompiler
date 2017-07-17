@@ -48,12 +48,12 @@ ensures |zs| == |xs| + |ys|:
     int[] rs = [0; count]
     //
     int i = 0
-    while i < |xs| where i >= 0 && i <= |xs| && |rs| == count:
+    while i < |xs| where i <= |xs| && |rs| == count:
         rs[i] = xs[i]
         i = i + 1
     //
     int j = 0
-    while j < |ys| where j >= 0 && |rs| == count:
+    while j < |ys| where |rs| == count:
         rs[j + i] = ys[j]
         j = j + 1
     //

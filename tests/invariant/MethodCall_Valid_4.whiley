@@ -4,7 +4,7 @@ method start(Sum _this) :
     int sum = 0
     int i = 0
     int[] items = _this->items
-    while i < |items| where i >= 0:
+    while i < |items|:
         sum = sum + items[i]
         i = i + 1
     _this->result = sum
@@ -18,7 +18,7 @@ method create(int[] items) -> Sum:
 method seqSum(int[] items) -> int:
     int r = 0
     int i = 0
-    while i < |items| where i >= 0:
+    while i < |items|:
         r = r + items[i]
         i = i + 1
     return r

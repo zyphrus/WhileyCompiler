@@ -20,10 +20,10 @@ function or(byte b1, byte b2) -> byte:
 
 public export method test() :
     int i = 0
-    while i < |constants| where i >= 0:
+    while i < |constants|:
         byte constant_i = constants[i]
         int j = 0
-        while j < |constants| where j >= 0:
+        while j < |constants|:
             byte constant_j = constants[j]
             assume (constant_i | constant_j) == or(constant_i,constant_j)
             j = j + 3

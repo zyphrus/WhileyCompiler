@@ -7,7 +7,6 @@ function cons(int item, int[] input) -> int[]:
     int i = 0
     //
     while i < |input|
-        where i >= 0
         where |result| == |input|+1:
         //
         result[i+1] = input[i]

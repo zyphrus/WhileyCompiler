@@ -10,7 +10,7 @@ method createActors(int n) -> ((&Actor)[] r)
 requires n >= 0:
     (&Actor)[] row = [createActor(0); n]
     int j = 1
-    while j < n where j >= 0 && |row| == n:
+    while j < n where |row| == n:
         &Actor m = createActor(j)
         row[j] = m
         j = j + 1
@@ -21,7 +21,7 @@ public export method test() :
     int r = 0
     //
     int i = 0
-    while i < |actors| where i >= 0:
+    while i < |actors|:
         r = r + get(actors[i])
         i = i + 1
     //

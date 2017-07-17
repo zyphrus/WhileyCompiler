@@ -7,14 +7,13 @@ ensures |zs| == |xs| + |ys|:
     //
     int i = 0
     while i < |xs|
-        where i >= 0 && i <= |xs|
+        where i <= |xs|
         where |xs| + |ys| == |rs|:
         rs[i] = xs[i]
         i = i + 1
     //
     int j = 0
     while j < |ys|
-        where j >= 0
         where |xs| + |ys| == |rs|:
         rs[j + i] = ys[j]
         j = j + 1

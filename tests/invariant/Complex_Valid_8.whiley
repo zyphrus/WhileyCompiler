@@ -31,7 +31,7 @@ ensures |result| == |transitions| + 1:
     Transition[] r = [t; |transitions| + 1]
     int i = 0
     while i < |transitions|
-    where i >= 0 && |r| == (|transitions|+1)
+    where |r| == (|transitions|+1)
     where validTransitions(r):
         r[i] = transitions[i]
         i = i + 1
@@ -57,7 +57,7 @@ requires index >= 0 && index <= |str|:
         char c = str[index]
         int i = 0
         //
-        while i < |trie.transitions| where i >= 0:
+        while i < |trie.transitions|:
             Transition t = trie.transitions[i]
             if t.from == state && t.character == c:
                 // Yes, existing transition for character
@@ -89,7 +89,7 @@ requires state >= 0:
         char c = str[index]
         int i = 0
         //
-        while i < |trie.transitions| where i >= 0:
+        while i < |trie.transitions|:
             Transition t = trie.transitions[i]
             if t.from == state && t.character == c:
                 // Yes, existing transition for character
