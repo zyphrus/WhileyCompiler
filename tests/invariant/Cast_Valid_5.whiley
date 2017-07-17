@@ -17,8 +17,7 @@ ensures 0 <= r && r <= 255:
     int i = 0
     //
     while i <= 7
-        where 0 <= i
-        where 0 <= x && x < base
+        where x < base
         where base == bases[i]:
         if (b & 00000001b) == 00000001b:
             x = x + base
@@ -43,7 +42,7 @@ public function toUnsignedByte(u8 v) -> byte:
 
 public export method test() :
     int i = 32
-    while i < 127 where i >= 0:
+    while i < 127:
         int c = toUnsignedInt(toUnsignedByte(i))
         assume c == i
         i = i + 1

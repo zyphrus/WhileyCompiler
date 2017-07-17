@@ -6,7 +6,7 @@ function zeroOut(int[] items) -> int[]:
     //
     while i < |items|
     //
-    where i >= 0 && i <= |items| && |items| == |oitems|
+    where i <= |items|
     // Elements upto but not including i are zeroed
     where all { j in 0 .. i | items[j] == 0 }:
         //

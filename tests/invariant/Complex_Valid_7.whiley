@@ -19,13 +19,13 @@ ensures r == x || r == y || r == z:
 // Following is just to help verification
 method fn(int[] xs):
     int i1 = 0
-    while i1 < |xs| where i1 >= 0:
+    while i1 < |xs|:
         int v1 = xs[i1]
         int i2 = 0
-        while i2 < |xs| where i2 >= 0:
+        while i2 < |xs|:
             int v2 = xs[i2]
             int i3 = 0
-            while i3 < |xs| where i3 >= 0:
+            while i3 < |xs|:
                 int v3 = xs[i3]
                 assume (v1 <= v3 && v2 <= v3) ==> max3(v1,v2,v3) == v3
                 assume (v1 <= v2 && v3 <= v2) ==> max3(v1,v2,v3) == v2

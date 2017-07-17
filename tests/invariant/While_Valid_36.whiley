@@ -12,7 +12,7 @@ ensures r >= 0 ==> xs[r] == x:
     //
     while i < |xs|
     // i is positive and last is between -1 and size of xs
-    where i >= 0 && last >= -1 && last < |xs|
+    where last >= -1 && last < |xs|
     // If last is not negative, then the element at that index matches
     where last >= 0 ==> xs[last] == x:
         //
