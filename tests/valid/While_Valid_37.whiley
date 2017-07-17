@@ -13,7 +13,7 @@ ensures all { i in 0 .. 8 | r[i] == !bits[i] }:
     //
     while i < 8
     // i is non-negative, and size of bits unchanged
-    where |ret| == |bits| && i <= |bits|
+    where i >= 0 && |ret| == |bits| && i <= |bits|
     // Every bit upto i is inverted now
     where all { j in 0 .. i | ret[j] == !bits[j] }:
         //

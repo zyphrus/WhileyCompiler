@@ -7,7 +7,7 @@ requires |v1| == |v2|
 ensures |vr| == |v1|:
     //
     int i = 0
-    while i < |v1| where (|v1| == |v2|):
+    while i < |v1| where (i >= 0) && (|v1| == |v2|):
         v1[i] = v1[i] + v2[i]
         i = i + 1
     return v1
