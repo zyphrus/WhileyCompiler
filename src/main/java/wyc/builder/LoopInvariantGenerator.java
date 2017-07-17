@@ -4,6 +4,7 @@ import wybs.lang.Attribute;
 import wyc.builder.invariants.ArrayLengthCopyInvariant;
 import wyc.builder.invariants.InvariantGenerator;
 import wyc.builder.invariants.StartingBoundInvariant;
+import wyc.builder.invariants.StartingBoundInvariantLattice;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wyc.lang.WhileyFile;
@@ -30,7 +31,8 @@ public class LoopInvariantGenerator {
         this.generators = new ArrayList<>();
 
         // TODO: allow this to be user controlled list of invariant generators
-        this.generators.add(new StartingBoundInvariant());
+        // this.generators.add(new StartingBoundInvariant());
+        this.generators.add(new StartingBoundInvariantLattice());
         this.generators.add(new ArrayLengthCopyInvariant());
     }
 
@@ -100,11 +102,11 @@ public class LoopInvariantGenerator {
                 Expr.LVal lval = lvals.next();
                 Expr rval = rvals.next();
 
-                if (context.hasValue(lval.toString())) {
-                    System.err.println("Oh dear, two assignments for " + lval + " removing from set of safe variants");
-                    context.getValue(lval.toString()).setAssigned(null);
-                    continue;
-                }
+                // if (context.hasValue(lval.toString())) {
+                //     System.err.println("Oh dear, two assignments for " + lval + " removing from set of safe variants");
+                //     context.getValue(lval.toString()).setAssigned(null);
+                //     continue;
+                // }
 
                 // a candidate that could be inferred must be an integer type
                 // and be assigned to a constant, e.g. int i = 0
