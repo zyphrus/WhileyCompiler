@@ -10,7 +10,7 @@ ensures r >= 0:
     int sum = 0
     //
     while i < |xs|
-    where sum >= 0:
+    where i >= 0 && sum >= 0:
         sum = sum + xs[i]
         i = i + 1
     //

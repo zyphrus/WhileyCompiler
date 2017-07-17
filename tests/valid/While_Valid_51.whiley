@@ -4,6 +4,7 @@ ensures r ==> all { j in 0..|xs| | xs[j] != 0}:
     int i = 0
     //
     while i < |xs|
+    where i >= 0
     where all { j in 0..i | xs[j] != 0}:
         //
         if xs[i] == 0:

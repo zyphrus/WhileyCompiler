@@ -8,7 +8,7 @@ requires n > 0:
     //
     while i < |items|
     //
-    where i <= |items| && |items| == |oitems|
+    where i >= 0 && i <= |items| && |items| == |oitems|
     // Elements upto but not including i are zeroed
     where all { j in 0 .. i | oitems[j] < items[j] }:
         //

@@ -4,7 +4,7 @@ ensures r == n || r == n+1:
     //
     int i = 0
     //
-    while i < n where i <= n + 1:
+    while i < n where i >= 0 && i <= n + 1:
         if i == 3:
             i = i + 2
             continue

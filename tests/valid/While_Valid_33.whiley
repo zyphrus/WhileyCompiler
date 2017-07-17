@@ -8,7 +8,7 @@ ensures r >= 0:
     //
     int i = 0
     int x = 0
-    while i < |items| where x >= 0:
+    while i < |items| where i >= 0 && x >= 0:
         x = x + items[i]
         i = i + 1
     //
