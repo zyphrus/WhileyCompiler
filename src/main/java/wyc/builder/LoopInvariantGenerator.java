@@ -25,6 +25,7 @@ public class LoopInvariantGenerator {
 
     private final WhileyFile whileyFile;
     private final List<InvariantGenerator> generators;
+    public static boolean Enabled = false;
 
     public LoopInvariantGenerator(WhileyFile whileyFile) {
         this.whileyFile = whileyFile;
@@ -37,6 +38,10 @@ public class LoopInvariantGenerator {
     }
 
     public void generate() {
+        if (!Enabled) {
+            return;
+        }
+
         for (WhileyFile.FunctionOrMethodOrProperty method : whileyFile.declarations(WhileyFile.FunctionOrMethodOrProperty.class)) {
             Context context = new Context();
 

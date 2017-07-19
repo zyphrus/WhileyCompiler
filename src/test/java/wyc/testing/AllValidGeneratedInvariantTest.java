@@ -14,6 +14,7 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
+import wyc.builder.LoopInvariantGenerator;
 import wyc.commands.Compile;
 import wyc.util.TestUtils;
 import wycc.util.Pair;
@@ -166,6 +167,7 @@ public class AllValidGeneratedInvariantTest {
 	 * @throws IOException
 	 */
 	protected void runTest(String name) throws IOException {
+		LoopInvariantGenerator.Enabled = true;
 		File whileySrcDir = new File(WHILEY_SRC_DIR);
 		// this will need to turn on verification at some point.
 		name = WHILEY_SRC_DIR + File.separatorChar + name + ".whiley";
