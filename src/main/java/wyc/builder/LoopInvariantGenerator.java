@@ -1,14 +1,10 @@
 package wyc.builder;
 
 import wybs.lang.Attribute;
-import wyc.builder.invariants.ArrayLengthCopyInvariant;
-import wyc.builder.invariants.InvariantGenerator;
-import wyc.builder.invariants.StartingBoundInvariant;
-import wyc.builder.invariants.StartingBoundInvariantLattice;
+import wyc.builder.invariants.*;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wyc.lang.WhileyFile;
-import wyil.lang.Type;
 
 import java.util.*;
 
@@ -43,7 +39,7 @@ public class LoopInvariantGenerator {
         }
 
         for (WhileyFile.FunctionOrMethodOrProperty method : whileyFile.declarations(WhileyFile.FunctionOrMethodOrProperty.class)) {
-            Context context = new Context();
+            Util.Context context = new Util.Context(whileyFile);
 
             for (WhileyFile.Parameter param : method.parameters) {
                 context.putParam(param.name());
@@ -59,7 +55,7 @@ public class LoopInvariantGenerator {
      *
      * @param statements
      */
-    private void findLoops(ArrayList<Stmt> statements, Context context) {
+    private void findLoops(ArrayList<Stmt> statements, Util.Context context) {
         for (Stmt stmt : statements) {
             findLoops(stmt, context);
         }
@@ -72,24 +68,24 @@ public class LoopInvariantGenerator {
      * @param stmt The statement being processed
      * @param context current information about the traversed AST
      */
-    void findLoops(Stmt stmt, Context context) {
+    void findLoops(Stmt stmt, Util.Context context) {
         if (stmt instanceof Stmt.IfElse) {
             Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
 
-            findLoops(stmtIfElse.trueBranch, new Context(context));
-            findLoops(stmtIfElse.falseBranch, new Context(context));
+            findLoops(stmtIfElse.trueBranch, new Util.Context(context));
+            findLoops(stmtIfElse.falseBranch, new Util.Context(context));
         } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
-            findLoops(namedBlock.body, new Context(context));
+            findLoops(namedBlock.body, new Util.Context(context));
         } else if (stmt instanceof Stmt.Switch) {
             Stmt.Switch switchStmt = (Stmt.Switch) stmt;
             for (Stmt.Case caseStmt : switchStmt.cases) {
-                findLoops(caseStmt.stmts, new Context(context));
+                findLoops(caseStmt.stmts, new Util.Context(context));
             }
         } else if (stmt instanceof Stmt.DoWhile) {
             Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
             // handle the do-while loop ?
-            findLoops(whileStmt.body, new Context(context));
+            findLoops(whileStmt.body, new Util.Context(context));
         } else if (stmt instanceof Stmt.VariableDeclaration) {
             Stmt.VariableDeclaration stmtDecl = (Stmt.VariableDeclaration) stmt;
 
@@ -134,100 +130,9 @@ public class LoopInvariantGenerator {
                 });
             }
 
-            findLoops(whileStmt.body, new Context(context));
-        }
-    }
-
-    public static class GeneratedAttribute implements wybs.lang.Attribute {
-        private final String reason;
-        public GeneratedAttribute(String reason) {
-            this.reason = reason;
-        }
-
-        @Override
-        public String toString() {
-            return "GeneratedAttribute{" +
-                    "reason='" + reason + '\'' +
-                    '}';
+            findLoops(whileStmt.body, new Util.Context(context));
         }
     }
 
 
-    public static class Context {
-        private final Context parent;
-
-        private Map<String, Variable> variables = new HashMap<>();
-        private Set<String> parameters = new HashSet<>();
-
-        public Context() {
-            this.parent = null;
-        }
-
-        public Context(Context parent) {
-            this.parent = parent;
-        }
-
-        public Variable getValue(String variable) {
-            if (variables.containsKey(variable)) {
-                return variables.get(variable);
-            } else if (this.parent != null) {
-                return this.parent.getValue(variable);
-            }
-            return null;
-        }
-
-        public boolean hasValue(String variable) {
-            if (variables.containsKey(variable)) {
-                return true;
-            } else if (this.parent != null) {
-                return this.parent.hasValue(variable);
-            }
-            return false;
-        }
-
-        void putValue(String variable, wyil.lang.Type type, Expr expr) {
-            this.variables.put(variable, new Variable(type, expr));
-        }
-
-
-        void putParam(String variable) {
-            if (this.parent != null) {
-                throw new IllegalStateException("Only the root node can put parameters to the context");
-            }
-            this.parameters.add(variable);
-        }
-
-        public boolean hasParam(String variable) {
-            if (this.parent != null) {
-                return this.parent.hasParam(variable);
-            }
-            return this.parameters.contains(variable);
-        }
-
-        public Map<String, Variable> getVariables() {
-            return new HashMap<>(this.variables);
-        }
-    }
-
-    public static class Variable {
-        private final wyil.lang.Type type;
-        private Expr assigned;
-
-        Variable(Type type, Expr assignment) {
-            this.type = type;
-            this.assigned = assignment;
-        }
-
-        public Type getType() {
-            return type;
-        }
-
-        public Expr getAssigned() {
-            return assigned;
-        }
-
-        public void setAssigned(Expr assigned) {
-            this.assigned = assigned;
-        }
-    }
 }

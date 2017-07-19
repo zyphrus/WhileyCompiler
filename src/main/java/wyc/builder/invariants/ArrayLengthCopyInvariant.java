@@ -1,6 +1,5 @@
 package wyc.builder.invariants;
 
-import wyc.builder.LoopInvariantGenerator;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wycc.util.Pair;
@@ -25,34 +24,35 @@ import java.util.*;
 public class ArrayLengthCopyInvariant implements InvariantGenerator {
 
     @Override
-    public List<Expr> generateInvariant(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
+        // identify arrays that are associated via array generators or copying
         Map<Expr.LocalVariable, Expr.LocalVariable> associated =  associatedArrays(context);
+        // find array usages in the loop body
         Map<String, Boolean> validArrays = findArrays(whileStmt, context);
         Set<Pair<String, String>> added = new HashSet<>();
 
         for (Map.Entry<Expr.LocalVariable, Expr.LocalVariable> entry : associated.entrySet()) {
 
-            // merge mapping with validArrays & associated arrays
+            // merges mapping with validArrays & associated arrays
 
-
-            if (entry.getValue() == null || !validArrays.getOrDefault(entry.getValue().var, false)) {
+            if (entry.getValue() == null ||
+                    !validArrays.getOrDefault(entry.getValue().var, false)) {
                 continue;
             }
 
+            // ensure that this combination has not been added already
             if (added.contains(new Pair<>(entry.getKey().var, entry.getValue().var)) ||
-                    added.contains(new Pair<>(entry.getValue().var, entry.getKey().var)))
-            {
+                    added.contains(new Pair<>(entry.getValue().var, entry.getKey().var))) {
                 continue;
             }
 
+            // Build the invariant expression
             Expr lengthOfLocal = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getKey());
             Expr lengthOfBase = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getValue());
             Expr invariant = new Expr.BinOp(Expr.BOp.EQ, lengthOfLocal, lengthOfBase,
-                    new LoopInvariantGenerator.GeneratedAttribute("local array is generated with length equal to another array"));
-
-            System.err.println(entry);
+                    new Util.GeneratedAttribute("local array is generated with length equal to another array"));
 
             invariants.add(invariant);
             added.add(new Pair<>(entry.getKey().var, entry.getValue().var));
@@ -61,13 +61,14 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         return invariants;
     }
 
-    Map<Expr.LocalVariable, Expr.LocalVariable> associatedArrays(LoopInvariantGenerator.Context context) {
+    Map<Expr.LocalVariable, Expr.LocalVariable> associatedArrays(Util.Context context) {
 
         Map<Expr.LocalVariable, Expr.LocalVariable> associated = new HashMap<>();
 
+        for (Map.Entry<String, Util.Variable> var : context.getVariables().entrySet()) {
+            Type varType = Util.resolveType(var.getValue().getType(), context);
 
-        for (Map.Entry<String, LoopInvariantGenerator.Variable> var : context.getVariables().entrySet()) {
-            if (var.getValue().getType() instanceof Type.Array) {
+            if (varType instanceof Type.Array) {
                 Expr assigned = var.getValue().getAssigned();
                 Expr.LocalVariable left = new Expr.LocalVariable(var.getKey(), var.getValue().getAssigned().attributes());
                 left.type = var.getValue().getType();
@@ -87,21 +88,21 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
 
                         if (lengthOf.mhs instanceof Expr.LocalVariable) {
                             Expr.LocalVariable countVar = (Expr.LocalVariable) lengthOf.mhs;
-                            if (countVar.type instanceof Type.Array) {
+                            Type resolved = Util.resolveType(countVar.type, context);
+
+                            if (resolved instanceof Type.Array) {
                                 associated.put(left, countVar);
                                 associated.put(countVar, left);
                             }
                         }
                     }
-
                 }
             }
         }
-
         return associated;
     }
 
-    private Map<String, Boolean> findArrays(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    private Map<String, Boolean> findArrays(Stmt.While whileStmt, Util.Context context) {
         Map<String, Boolean> variants = new HashMap<>();
 
         this.findArrays(whileStmt.body, variants, context);
@@ -109,13 +110,13 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         return variants;
     }
 
-    private void findArrays(List<Stmt> stmts, Map<String, Boolean> variants, LoopInvariantGenerator.Context context) {
+    private void findArrays(List<Stmt> stmts, Map<String, Boolean> variants, Util.Context context) {
         for (Stmt stmt : stmts) {
             findArrays(stmt, variants, context);
         }
     }
 
-    private void findArrays(Stmt stmt, Map<String, Boolean> variants, LoopInvariantGenerator.Context context) {
+    private void findArrays(Stmt stmt, Map<String, Boolean> variants, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
@@ -232,9 +233,9 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
      * @param context
      * @param local The local variable to be checked
      */
-    private Expr.LocalVariable getArrayGeneratorName(LoopInvariantGenerator.Context context, Expr.LocalVariable local) {
+    private Expr.LocalVariable getArrayGeneratorName(Util.Context context, Expr.LocalVariable local) {
 
-        LoopInvariantGenerator.Variable var = context.getValue(local.var);
+        Util.Variable var = context.getValue(local.var);
 
         if (var == null || var.getAssigned() == null) {
             if (context.hasParam(local.var)) {
@@ -253,7 +254,7 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
                     if (generatorCount.mhs instanceof Expr.LocalVariable) {
                         Expr.LocalVariable localLengthOf = (Expr.LocalVariable) generatorCount.mhs;
 
-                        LoopInvariantGenerator.Variable basedOff = context.getValue(localLengthOf.var);
+                        Util.Variable basedOff = context.getValue(localLengthOf.var);
                         if (basedOff != null && basedOff.getAssigned() != null) {
                             return localLengthOf;
                         } else if (context.hasParam(localLengthOf.var)) {

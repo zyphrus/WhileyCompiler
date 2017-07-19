@@ -1,6 +1,5 @@
 package wyc.builder.invariants;
 
-import wyc.builder.LoopInvariantGenerator;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wycc.util.Pair;
@@ -12,7 +11,7 @@ import java.util.*;
 public class StartingBoundInvariantLattice implements InvariantGenerator {
 
     @Override
-    public List<Expr> generateInvariant(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
         Environment env = findVariants(whileStmt, context);
@@ -48,7 +47,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
      * @param context a store of local variables and paramters
      * @return expression of invariant, otherwise null
      */
-    private Expr startingBoundInvariant(Expr.AssignedVariable variant, SequenceDirection direction, LoopInvariantGenerator.Context context) {
+    private Expr startingBoundInvariant(Expr.AssignedVariable variant, SequenceDirection direction, Util.Context context) {
 
         // check if the mutation is invalid
         if (direction == SequenceDirection.UNKNOWN || direction == SequenceDirection.UNDETERMINED) {
@@ -58,7 +57,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
 
         // TODO: detect if the value before the loop is safe or not
         // could extend this to create a ghost variable instead, however for now keeping to safe
-        LoopInvariantGenerator.Variable preLoopValue = context.getValue(variant.var);
+        Util.Variable preLoopValue = context.getValue(variant.var);
         if (!checkPreLoopValue(preLoopValue.getAssigned(), context)) {
             System.err.println("Oh my, the entrant value is not safe for " + variant + " with " + preLoopValue );
             return null;
@@ -66,10 +65,10 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
 
         // given the
         return new Expr.BinOp(direction.toBOp(), variant, preLoopValue.getAssigned(),
-                new LoopInvariantGenerator.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
+                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
     }
 
-    private Environment findVariants(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    private Environment findVariants(Stmt.While whileStmt, Util.Context context) {
         Environment env = new Environment();
 
         findVariants(whileStmt.body, env, context);
@@ -77,7 +76,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
         return env;
     }
 
-    private void findVariants(List<Stmt> stmts, Environment env, LoopInvariantGenerator.Context context) {
+    private void findVariants(List<Stmt> stmts, Environment env, Util.Context context) {
         for (Stmt stmt : stmts) {
             findVariants(stmt, env, context);
         }
@@ -96,7 +95,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
      * @param env
      * @param context collection of local variables and parameters
      */
-    private void findVariants(Stmt stmt, Environment env, LoopInvariantGenerator.Context context) {
+    private void findVariants(Stmt stmt, Environment env, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
@@ -168,7 +167,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
      * @param context
      * @return true if the expression is determined to be safe, otherwise false.
      */
-    private boolean checkPreLoopValue(Expr preloop, LoopInvariantGenerator.Context context) {
+    private boolean checkPreLoopValue(Expr preloop, Util.Context context) {
         if (preloop instanceof Expr.Constant) {
             return true;
         } else if (preloop instanceof Expr.UnOp) {
@@ -186,7 +185,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
                 return true;
             }
 
-            LoopInvariantGenerator.Variable e = context.getValue(localVar.var);
+            Util.Variable e = context.getValue(localVar.var);
             if (e.getAssigned() != null) {
                 return checkPreLoopValue(e.getAssigned(), context);
             }
