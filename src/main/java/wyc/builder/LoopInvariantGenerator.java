@@ -198,6 +198,10 @@ public class LoopInvariantGenerator {
             }
             return this.parameters.contains(variable);
         }
+
+        public Map<String, Variable> getVariables() {
+            return new HashMap<>(this.variables);
+        }
     }
 
     public static class Variable {
