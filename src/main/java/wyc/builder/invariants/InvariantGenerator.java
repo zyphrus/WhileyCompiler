@@ -1,6 +1,5 @@
 package wyc.builder.invariants;
 
-import wyc.builder.LoopInvariantGenerator;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 
@@ -19,6 +18,6 @@ public interface InvariantGenerator {
      * @param context the context from the statements before the loop
      * @return a list of valid loop invariants
      */
-    List<Expr> generateInvariant(Stmt.While whileStmt, LoopInvariantGenerator.Context context);
+    List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context);
 
 }

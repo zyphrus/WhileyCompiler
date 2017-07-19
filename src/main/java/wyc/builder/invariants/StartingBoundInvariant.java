@@ -1,6 +1,5 @@
 package wyc.builder.invariants;
 
-import wyc.builder.LoopInvariantGenerator;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wyil.lang.Constant;
@@ -11,7 +10,7 @@ import java.util.*;
 public class StartingBoundInvariant implements InvariantGenerator {
 
     @Override
-    public List<Expr> generateInvariant(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
         Map<Expr.LVal, Expr> variants = findVariants(whileStmt, context);
@@ -44,7 +43,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
      * @param context a store of local variables and paramters
      * @return expression of invariant, otherwise null
      */
-    private Expr startingBoundInvariant(Expr.AssignedVariable variant, Expr variantExpr, LoopInvariantGenerator.Context context) {
+    private Expr startingBoundInvariant(Expr.AssignedVariable variant, Expr variantExpr, Util.Context context) {
 
         // determine the direction of the mutation, + or -
         SequenceDirection direction = determineSequenceDirection(variant, variantExpr);
@@ -56,7 +55,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
 
         // TODO: detect if the value before the loop is safe or not
         // could extend this to create a ghost variable instead, however for now keeping to safe
-        LoopInvariantGenerator.Variable preLoopValue = context.getValue(variant.var);
+        Util.Variable preLoopValue = context.getValue(variant.var);
         if (!checkPreLoopValue(preLoopValue.getAssigned(), context)) {
             System.err.println("Oh my, the entrant value is not safe for " + variant + " with " + preLoopValue );
             return null;
@@ -64,10 +63,10 @@ public class StartingBoundInvariant implements InvariantGenerator {
 
         // given the
         return new Expr.BinOp(direction.toBOp(), variant, preLoopValue.getAssigned(),
-                new LoopInvariantGenerator.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
+                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
     }
 
-    private Map<Expr.LVal, Expr> findVariants(Stmt.While whileStmt, LoopInvariantGenerator.Context context) {
+    private Map<Expr.LVal, Expr> findVariants(Stmt.While whileStmt, Util.Context context) {
         Map<Expr.LVal, Expr> variants = new HashMap<>();
 
         findVariants(whileStmt.body, variants, true, context);
@@ -75,7 +74,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
         return variants;
     }
 
-    private void findVariants(List<Stmt> stmts, Map<Expr.LVal, Expr> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
+    private void findVariants(List<Stmt> stmts, Map<Expr.LVal, Expr> variants, boolean topLevel, Util.Context context) {
         for (Stmt stmt : stmts) {
             findVariants(stmt, variants, topLevel, context);
         }
@@ -95,7 +94,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
      * @param topLevel check to make sure we are at the top level of the while loop
      * @param context collection of local variables and parameters
      */
-    private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, boolean topLevel, LoopInvariantGenerator.Context context) {
+    private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, boolean topLevel, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
@@ -172,7 +171,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
      * @param context
      * @return true if the expression is determined to be safe, otherwise false.
      */
-    private boolean checkPreLoopValue(Expr preloop, LoopInvariantGenerator.Context context) {
+    private boolean checkPreLoopValue(Expr preloop, Util.Context context) {
         if (preloop instanceof Expr.Constant) {
             return true;
         } else if (preloop instanceof Expr.UnOp) {
@@ -190,7 +189,7 @@ public class StartingBoundInvariant implements InvariantGenerator {
                 return true;
             }
 
-            LoopInvariantGenerator.Variable e = context.getValue(localVar.var);
+            Util.Variable e = context.getValue(localVar.var);
             if (e.getAssigned() != null) {
                 return checkPreLoopValue(e.getAssigned(), context);
             }
