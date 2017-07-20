@@ -1,5 +1,9 @@
 language: java
 
+addons:
+  apt:
+    packages:
+      - ant-optional
 
 #
 jdk:
