@@ -41,7 +41,7 @@ import static org.junit.Assert.fail;
 @RunWith(Parameterized.class)
 public class AllValidGeneratedInvariantTest {
 	@Rule
-	public Timeout globalTimeout = new Timeout(5, TimeUnit.SECONDS);
+	public Timeout globalTimeout = new Timeout(10, TimeUnit.SECONDS);
 
 	/**
 	 * The directory containing the source files for each test case. Every test
