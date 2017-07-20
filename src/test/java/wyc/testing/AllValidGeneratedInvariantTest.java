@@ -143,6 +143,7 @@ public class AllValidGeneratedInvariantTest {
 		IGNORED.put("RecursiveType_Valid_4", "WyTP#114");
 		//
 		IGNORED.put("While_Valid_34", "??");
+        IGNORED.put("While_Valid_42", "??");
 		IGNORED.put("String_Valid_6", "??");
 	}
 

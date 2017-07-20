@@ -9,6 +9,7 @@ requires |args| >= 2:
         r = r + args[i]
         i = i + 1
     while (i + 1) < |args|
+    where i >= 0
     //
     return r
 
