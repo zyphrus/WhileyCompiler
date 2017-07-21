@@ -2,8 +2,10 @@ package wyc.builder.invariants;
 
 import wyc.lang.Expr;
 import wyc.lang.WhileyFile;
+import wyil.lang.Constant;
 import wyil.lang.Type;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,6 +25,87 @@ public class Util {
         } else {
             return type;
         }
+    }
+
+
+    /**
+     * Evaluate an expression that contains only constants and the assigned variable
+     *
+     *
+     *
+     * @param variable
+     * @param expr
+     * @return the change in value the variable will
+     */
+    public static BigInteger evalConstExpr(Expr.AssignedVariable variable, Expr expr, BigInteger varValue) {
+        if (expr instanceof Expr.BinOp) {
+            Expr.BinOp binop = (Expr.BinOp) expr;
+            switch (binop.op) {
+                case ADD:
+                    return evalConstExpr(variable, binop.lhs, varValue).add(evalConstExpr(variable, binop.rhs, varValue));
+                case SUB:
+                    return evalConstExpr(variable, binop.lhs, varValue).subtract(evalConstExpr(variable, binop.rhs, varValue));
+                default:
+                    throw new UnsupportedOperationException();
+            }
+        } else if (expr instanceof Expr.Constant) {
+            Expr.Constant constant = (Expr.Constant) expr;
+            return ((Constant.Integer) constant.value).value();
+        } else if (expr instanceof Expr.LocalVariable) {
+            Expr.LocalVariable local = (Expr.LocalVariable) expr;
+
+            if (local.var.equals(variable.var)) {
+                return varValue;
+            } else {
+                throw new UnsupportedOperationException();
+            }
+        }
+
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Determines if the expression is a simple mutation of the given variable
+     *
+     * @param var variable that is being assigned
+     * @param expr mutation expression
+     * @return true if the assignment is a simple mutation
+     */
+    public static boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr) {
+        return isSimpleMutationOfVar(var, expr, true);
+    }
+
+    /**
+     * Determines if the expression is a simple mutation of the given variable
+     *
+     * A simple mutation is defined as the use of addition or subtraction of constants and the assigned variable.
+     * This is
+     * The given variable must be contained within the expression but cannot be the whole expression.
+     *
+     * This method can give a false positive in the case of <code>x - x</code>
+     *
+     * @param var variable that is being assigned
+     * @param expr mutation expression
+     * @param topLevel true if the current mutation is a sub-expression of the total expression, otherwise false
+     * @return true if the assignment is a simple mutation, otherwise false
+     */
+    private static boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr, boolean topLevel) {
+        if (expr instanceof Expr.Constant) {
+            return !topLevel;
+        } else if (expr instanceof Expr.BinOp) {
+            Expr.BinOp binop = (Expr.BinOp) expr;
+
+            // only support ADD & SUB for simple mutation
+            if (!(binop.op.equals(Expr.BOp.ADD) || binop.op.equals(Expr.BOp.SUB))) {
+                return false;
+            }
+            return isSimpleMutationOfVar(var, binop.lhs, false) && isSimpleMutationOfVar(var, binop.rhs, false);
+        } else if (expr instanceof Expr.LocalVariable) {
+            Expr.LocalVariable local = (Expr.LocalVariable) expr;
+            // only allow reference to the variable that is being assigned to for simplicity
+            return local.var.equals(var.var);
+        }
+        return false;
     }
 
     public static class GeneratedAttribute implements wybs.lang.Attribute {

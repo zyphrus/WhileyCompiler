@@ -137,6 +137,11 @@ public interface Expr extends SyntacticElement {
 			this.value = val;
 		}
 
+		public Constant(wyil.lang.Constant val, Collection<Attribute> attributes) {
+			super(attributes);
+			this.value = val;
+		}
+
 		@Override
 		public Type result() {
 			return value.type();
@@ -378,6 +383,12 @@ public interface Expr extends SyntacticElement {
 		public Type type;
 
 		public UnOp(UOp op, Expr mhs, Attribute... attributes) {
+			super(attributes);
+			this.op = op;
+			this.mhs = mhs;
+		}
+
+		public UnOp(UOp op, Expr mhs, Collection<Attribute> attributes) {
 			super(attributes);
 			this.op = op;
 			this.mhs = mhs;

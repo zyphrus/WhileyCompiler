@@ -194,50 +194,6 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
         return false;
     }
 
-    /**
-     * Determines if the expression is a simple mutation of the given variable
-     *
-     * @param var variable that is being assigned
-     * @param expr mutation expression
-     * @return true if the assignment is a simple mutation
-     */
-    private boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr) {
-        return isSimpleMutationOfVar(var, expr, true);
-    }
-
-    /**
-     * Determines if the expression is a simple mutation of the given variable
-     *
-     * A simple mutation is defined as the use of addition or subtraction of constants and the assigned variable.
-     * This is
-     * The given variable must be contained within the expression but cannot be the whole expression.
-     *
-     * This method can give a false positive in the case of <code>x - x</code>
-     *
-     * @param var variable that is being assigned
-     * @param expr mutation expression
-     * @param topLevel true if the current mutation is a sub-expression of the total expression, otherwise false
-     * @return true if the assignment is a simple mutation, otherwise false
-     */
-    private boolean isSimpleMutationOfVar(Expr.AssignedVariable var, Expr expr, boolean topLevel) {
-        if (expr instanceof Expr.Constant) {
-            return !topLevel;
-        } else if (expr instanceof Expr.BinOp) {
-            Expr.BinOp binop = (Expr.BinOp) expr;
-
-            // only support ADD & SUB for simple mutation
-            if (!(binop.op.equals(Expr.BOp.ADD) || binop.op.equals(Expr.BOp.SUB))) {
-                return false;
-            }
-            return isSimpleMutationOfVar(var, binop.lhs, false) && isSimpleMutationOfVar(var, binop.rhs, false);
-        } else if (expr instanceof Expr.LocalVariable) {
-            Expr.LocalVariable local = (Expr.LocalVariable) expr;
-            // only allow reference to the variable that is being assigned to for simplicity
-            return local.var.equals(var.var);
-        }
-        return false;
-    }
-
     private enum SequenceDirection {
         ASCENDING,
         DESCENDING,
@@ -258,12 +214,12 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
 
 
     private SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
-        if (!isSimpleMutationOfVar(variable, expr)) {
+        if (!Util.isSimpleMutationOfVar(variable, expr)) {
            return SequenceDirection.UNDETERMINED;
         }
 
-        BigInteger exprValInitial = evalConstExpr(variable, expr, BigInteger.ZERO);
-        BigInteger exprValStep = evalConstExpr(variable, expr, exprValInitial);
+        BigInteger exprValInitial = Util.evalConstExpr(variable, expr, BigInteger.ZERO);
+        BigInteger exprValStep = Util.evalConstExpr(variable, expr, exprValInitial);
 
         BigInteger difference = exprValStep.subtract(exprValInitial);
 
@@ -274,42 +230,6 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
         } else {
             return SequenceDirection.UNKNOWN;
         }
-    }
-
-    /**
-     * Evaluate an expression that contains only constants and the assigned variable
-     *
-     *
-     *
-     * @param variable
-     * @param expr
-     * @return the change in value the variable will
-     */
-    private BigInteger evalConstExpr(Expr.AssignedVariable variable, Expr expr, BigInteger varValue) {
-        if (expr instanceof Expr.BinOp) {
-            Expr.BinOp binop = (Expr.BinOp) expr;
-            switch (binop.op) {
-                case ADD:
-                    return evalConstExpr(variable, binop.lhs, varValue).add(evalConstExpr(variable, binop.rhs, varValue));
-                case SUB:
-                    return evalConstExpr(variable, binop.lhs, varValue).subtract(evalConstExpr(variable, binop.rhs, varValue));
-                default:
-                    throw new UnsupportedOperationException();
-            }
-        } else if (expr instanceof Expr.Constant) {
-            Expr.Constant constant = (Expr.Constant) expr;
-            return ((Constant.Integer) constant.value).value();
-        } else if (expr instanceof Expr.LocalVariable) {
-            Expr.LocalVariable local = (Expr.LocalVariable) expr;
-
-            if (local.var.equals(variable.var)) {
-                return varValue;
-            } else {
-                throw new UnsupportedOperationException();
-            }
-        }
-
-        throw new UnsupportedOperationException();
     }
 
 
