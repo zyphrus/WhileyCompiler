@@ -5,8 +5,7 @@ ensures r == |items| || items[r] == ch:
     //
     int i = 0
     //
-    while i < |items| && items[i] != ch
-    where i <= |items|:
+    while i < |items| && items[i] != ch:
         i = i + 1
     //
     return i
