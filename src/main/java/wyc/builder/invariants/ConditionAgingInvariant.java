@@ -119,9 +119,7 @@ public class ConditionAgingInvariant implements InvariantGenerator {
             Expr.LocalVariable local = (Expr.LocalVariable) expr;
 
             Util.Variable var = context.getValue(local.var);
-            if (var == null && !topLevel) {
-                return context.hasParam(local.var);
-            } else if (var != null && var.getAssigned() != null) {
+            if (var != null && var.getAssigned() != null) {
                 return true;
             }
         } else if (expr instanceof Expr.Constant) {
@@ -300,6 +298,35 @@ public class ConditionAgingInvariant implements InvariantGenerator {
             return updated;
         } else if (expr instanceof Expr.BinOp) {
             Expr.BinOp binOp = (Expr.BinOp) expr;
+
+            if (amount.equals(BigInteger.ONE) || amount.equals(BigInteger.valueOf(-1))) {
+                // special case
+                boolean hasVariable = false;
+                if (binOp.lhs instanceof Expr.LocalVariable) {
+                    hasVariable |= ((Expr.LocalVariable)binOp.lhs).var.equals(name);
+                }
+                if (binOp.rhs instanceof Expr.LocalVariable) {
+                    hasVariable |= ((Expr.LocalVariable)binOp.rhs).var.equals(name);
+                }
+
+                if (hasVariable) {
+                    Expr.BOp equals = null;
+                    switch (binOp.op) {
+                        case GT:
+                            equals = Expr.BOp.GTEQ;
+                            break;
+                        case LT:
+                            equals = Expr.BOp.LTEQ;
+                            break;
+                    }
+
+                    if (equals != null) {
+                        Expr.BinOp updated = new Expr.BinOp(equals, binOp.lhs, binOp.rhs, binOp.attributes());
+                        updated.srcType = binOp.srcType;
+                        return updated;
+                    }
+                }
+            }
 
             Expr lhs = applyAgingTo(binOp.lhs, name, amount);
             Expr rhs = applyAgingTo(binOp.rhs, name, amount);
