@@ -9,7 +9,7 @@ ensures all { i in 0..|ys| | ys[i] >= 0 }:
     // First, count positive elements of xs
     // ======================================================
     while i < |xs| 
-        where i <= |xs| && |xs| == size
+        where i >= 0 && i <= |xs| && |xs| == size 
         where count >= 0 && count <= i:
         //
         if xs[i] >= 0:
