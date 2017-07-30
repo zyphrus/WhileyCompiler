@@ -89,9 +89,9 @@ public class ConditionAgingInvariant implements InvariantGenerator {
 
                 switch (binOp.op) {
                     case LT:
-                    case LTEQ:
+                    //case LTEQ:
                     case GT:
-                    case GTEQ:
+                    //case GTEQ:
                         if (isSimple(binOp.lhs, context) && isSimple(binOp.rhs, context)) {
                             simple.add(binOp);
                         }
@@ -111,10 +111,6 @@ public class ConditionAgingInvariant implements InvariantGenerator {
      * @return
      */
     private boolean isSimple(Expr expr, Util.Context context) {
-        return isSimple(expr, context, true);
-    }
-
-    private boolean isSimple(Expr expr, Util.Context context, boolean topLevel) {
         if (expr instanceof Expr.LocalVariable) {
             Expr.LocalVariable local = (Expr.LocalVariable) expr;
 
@@ -127,7 +123,7 @@ public class ConditionAgingInvariant implements InvariantGenerator {
         } else if (expr instanceof Expr.UnOp) {
             Expr.UnOp unOp = (Expr.UnOp) expr;
 
-            return isSimple(unOp.mhs, context, false);
+            return isSimple(unOp.mhs, context);
         }
 
         return false;
@@ -196,7 +192,11 @@ public class ConditionAgingInvariant implements InvariantGenerator {
                             && context.getValue(assignedVariable.var) != null
                             && Util.isSimpleMutationOfVar(assignedVariable, rval)
                             ) {
-                        env.update(assignedVariable.var, Util.evalConstExpr(assignedVariable, rval, BigInteger.ZERO));
+
+                        BigInteger change = Util.evalConstExpr(assignedVariable, rval, BigInteger.ZERO);
+                        if (change.equals(BigInteger.ONE) || change.equals(BigInteger.ONE.negate())) {
+                            env.update(assignedVariable.var, change);
+                        }
                     } else {
                         // invalidate the variant to be a candidate to check
                         // since the mutations are too complex to be handled
