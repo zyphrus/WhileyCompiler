@@ -270,6 +270,7 @@ public class WhileyFilePrinter {
         for(Expr i : s.invariants) {
             if (first) {
                 out.println();
+                indent(indent);
             }
             first = false;
             out.print(" where ");
@@ -288,9 +289,9 @@ public class WhileyFilePrinter {
 		out.print("while ");
 		print(s.condition);
 
-		boolean firstTime = true;
 		for(Expr i : s.invariants) {
 			out.println();
+            indent(indent);
 			out.print("where ");
 			print(i);
 		}
@@ -445,11 +446,11 @@ public class WhileyFilePrinter {
 	}
 
 	public void print(Expr.BinOp e) {
-		printWithBrackets(e.lhs, Expr.BinOp.class, Expr.Cast.class);
+		printWithBrackets(e.lhs, Expr.BinOp.class, Expr.Cast.class, Expr.UnOp.class);
 		out.print(" ");
 		out.print(e.op);
 		out.print(" ");
-		printWithBrackets(e.rhs, Expr.BinOp.class, Expr.Cast.class);
+		printWithBrackets(e.rhs, Expr.BinOp.class, Expr.Cast.class, Expr.UnOp.class);
 	}
 
 	public void print(Expr.Dereference e) {
@@ -786,8 +787,18 @@ public class WhileyFilePrinter {
 				out.print(name);
 			}
 		} else if(t instanceof WyalFile.Type.Array) {
-			print(((WyalFile.Type.Array)t).getElement());
-			out.print("[");
+            WyalFile.Type type = ((WyalFile.Type.Array)t).getElement();
+            boolean braces = false;
+            braces |= type instanceof WyalFile.Type.Union;
+            if (braces) {
+                out.print("(");
+            }
+            print(type);
+            if (braces) {
+                out.print(")");
+            }
+
+            out.print("[");
 			out.print("]");
 		} else if(t instanceof WyalFile.Type.FunctionOrMethodOrProperty) {
 			WyalFile.Type.FunctionOrMethodOrProperty tt = (WyalFile.Type.FunctionOrMethodOrProperty) t;
@@ -844,15 +855,23 @@ public class WhileyFilePrinter {
 			}
 			out.print("}");
 		} else if(t instanceof WyalFile.Type.Reference) {
-			out.print("&");
-//			out.print("(");
-			print(((WyalFile.Type.Reference) t).getElement());
-//            out.print(")");
+		    WyalFile.Type type = ((WyalFile.Type.Reference) t).getElement();
+			boolean braces = false;
+			braces |= type instanceof WyalFile.Type.Reference;
+            out.print("&");
+			if (braces) {
+                out.print("(");
+            }
+			print(type);
+            if (braces) {
+                out.print(")");
+            }
 		} else if(t instanceof WyalFile.Type.Negation) {
 			out.print("!");
 			print(((WyalFile.Type.Negation) t).getElement());
 		} else if(t instanceof WyalFile.Type.Union) {
 			WyalFile.Type.Union ut = (WyalFile.Type.Union) t;
+            //out.print("(");
 			boolean firstTime = true;
 			for(WyalFile.Type et : ut.getOperands()) {
 				if(!firstTime) {
@@ -861,6 +880,7 @@ public class WhileyFilePrinter {
 				firstTime=false;
 				print(et);
 			}
+            //out.print(")");
 		} else if(t instanceof WyalFile.Type.Intersection) {
 			WyalFile.Type.Intersection ut = (WyalFile.Type.Intersection) t;
 			boolean firstTime = true;
