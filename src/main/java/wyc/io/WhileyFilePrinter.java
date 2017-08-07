@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 
+import wyal.lang.SyntacticItem;
 import wyal.lang.WyalFile;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
@@ -72,6 +73,19 @@ public class WhileyFilePrinter {
 		} else {
 			out.print("function ");
 		}
+
+		if (!fm.lifetimeParameters.isEmpty()) {
+		    out.print("<");
+		    boolean first = true;
+		    for (String name : fm.lifetimeParameters) {
+		        if (!first) {
+		            out.print(", ");
+                }
+                first = false;
+		        out.print(name);
+            }
+            out.print("> ");
+        }
 
 		out.print(fm.name());
 		printParameters(fm.parameters);
@@ -446,11 +460,11 @@ public class WhileyFilePrinter {
 	}
 
 	public void print(Expr.BinOp e) {
-		printWithBrackets(e.lhs, Expr.BinOp.class, Expr.Cast.class, Expr.UnOp.class);
+		printWithBrackets(e.lhs, Expr.BinOp.class, Expr.Cast.class);
 		out.print(" ");
 		out.print(e.op);
 		out.print(" ");
-		printWithBrackets(e.rhs, Expr.BinOp.class, Expr.Cast.class, Expr.UnOp.class);
+		printWithBrackets(e.rhs, Expr.BinOp.class, Expr.Cast.class);
 	}
 
 	public void print(Expr.Dereference e) {
@@ -473,6 +487,11 @@ public class WhileyFilePrinter {
 	}
 
 	public void print(Expr.UnOp e) {
+	    boolean braces = false;
+	    braces |= e.op == Expr.UOp.INVERT;
+	    if (braces) {
+	        out.print("(");
+        }
 		switch(e.op) {
 		case NEG:
 			out.print("-");
@@ -490,6 +509,10 @@ public class WhileyFilePrinter {
 			return;
 		}
 		printWithBrackets(e.mhs,Expr.BinOp.class,Expr.Cast.class);
+
+        if (braces) {
+            out.print(")");
+        }
 	}
 
 	public void print(Expr.AbstractInvoke e) {
@@ -790,6 +813,7 @@ public class WhileyFilePrinter {
             WyalFile.Type type = ((WyalFile.Type.Array)t).getElement();
             boolean braces = false;
             braces |= type instanceof WyalFile.Type.Union;
+            braces |= type instanceof WyalFile.Type.Reference;
             if (braces) {
                 out.print("(");
             }
@@ -803,37 +827,46 @@ public class WhileyFilePrinter {
 		} else if(t instanceof WyalFile.Type.FunctionOrMethodOrProperty) {
 			WyalFile.Type.FunctionOrMethodOrProperty tt = (WyalFile.Type.FunctionOrMethodOrProperty) t;
 
+            WyalFile.Tuple contextLifetimes = null;
+            WyalFile.Tuple lifetimeParameters = null;
+
 			if(t instanceof WyalFile.Type.Function) {
 				out.print("function ");
 			} else if(t instanceof WyalFile.Type.Method) {
 				out.print("method ");
+                WyalFile.Type.Method method = (WyalFile.Type.Method) tt;
+
+                contextLifetimes = method.getContextLifetimes();
+                lifetimeParameters = method.getLifetimeParameters();
+
 			} else {
 				out.print("property ");
 			}
-//			if (!tt.contextLifetimes.isEmpty()) {
-//				out.print("[");
-//				boolean firstTime = true;
-//				for (String lifetime : tt.contextLifetimes) {
-//					if (!firstTime) {
-//						out.print(", ");
-//					}
-//					firstTime = false;
-//					out.print(lifetime);
-//				}
-//				out.print("]");
-//			}
-//			if (!tt.lifetimeParameters.isEmpty()) {
-//				out.print("<");
-//				boolean firstTime = true;
-//				for (String lifetime : tt.lifetimeParameters) {
-//					if (!firstTime) {
-//						out.print(", ");
-//					}
-//					firstTime = false;
-//					out.print(lifetime);
-//				}
-//				out.print(">");
-//			}
+			if (contextLifetimes != null) {
+				out.print("[");
+				boolean firstTime = true;
+				for (SyntacticItem lifetime : contextLifetimes.getOperands()) {
+					if (!firstTime) {
+						out.print(", ");
+					}
+					firstTime = false;
+					out.print(lifetime);
+				}
+				out.print("]");
+			}
+
+			if (lifetimeParameters != null) {
+				out.print("<");
+				boolean firstTime = true;
+				for (SyntacticItem lifetime : lifetimeParameters.getOperands()) {
+					if (!firstTime) {
+						out.print(", ");
+					}
+					firstTime = false;
+					out.print(lifetime);
+				}
+				out.print(">");
+			}
 			printParameterTypes(tt.getParameters());
 			out.print("->");
 			printParameterTypes(tt.getReturns());
@@ -855,12 +888,17 @@ public class WhileyFilePrinter {
 			}
 			out.print("}");
 		} else if(t instanceof WyalFile.Type.Reference) {
-		    WyalFile.Type type = ((WyalFile.Type.Reference) t).getElement();
+		    WyalFile.Type.Reference refType = (WyalFile.Type.Reference)  t;
+		    WyalFile.Type type = refType.getElement();
 			boolean braces = false;
 			braces |= type instanceof WyalFile.Type.Reference;
             out.print("&");
 			if (braces) {
                 out.print("(");
+            }
+            if (refType.getLifetime() != null) {
+			    out.print(refType.getLifetime().get());
+			    out.print(":");
             }
 			print(type);
             if (braces) {
