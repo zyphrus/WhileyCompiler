@@ -13,10 +13,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import wybs.lang.Build;
 import wybs.lang.NameID;
@@ -24,6 +22,7 @@ import wybs.util.StdProject;
 import wyc.Activator;
 import wyc.commands.Compile;
 import wyc.commands.Run;
+import wyc.lang.WhileyFile;
 import wycc.util.Logger;
 import wycc.util.Pair;
 import wyfs.lang.Content;
@@ -104,6 +103,28 @@ public class TestUtils {
 		return new Pair<>(result,output);
 	}
 
+	public static List<WhileyFile> parse(File whileydir, String... args) throws IOException {
+		ByteArrayOutputStream syserr = new ByteArrayOutputStream();
+		ByteArrayOutputStream sysout = new ByteArrayOutputStream();
+		Content.Registry registry = new wyc.Activator.Registry();
+		Compile cmd = new Compile(registry,Logger.NULL,sysout,syserr);
+		cmd.setWhileydir(whileydir);
+		cmd.setWyaldir(whileydir); //
+
+		ArrayList<File> delta = new ArrayList<>();
+		for (String arg : args) {
+			delta.add(new File(arg));
+		}
+		List<Path.Entry<WhileyFile>> entries = cmd.whileydir.find(delta, WhileyFile.ContentType);
+
+		List<WhileyFile> whileyFiles = new ArrayList<>(entries.size());
+		for (Path.Entry<WhileyFile> entry : entries) {
+			whileyFiles.add(WhileyFile.ContentType.read(entry, null));
+		}
+
+		return whileyFiles;
+	}
+
 	/**
 	 * Execute a given WyIL file using the default interpreter.
 	 *
@@ -135,6 +156,11 @@ public class TestUtils {
 	public static boolean compare(String output, String referenceFile) throws IOException {
 		BufferedReader outReader = new BufferedReader(new StringReader(output));
 		BufferedReader refReader = new BufferedReader(new FileReader(new File(referenceFile)));
+
+		return compare(outReader, refReader);
+    }
+
+	public static boolean compare(BufferedReader refReader, BufferedReader outReader) throws IOException {
 
 		boolean match = true;
 		while (true) {
