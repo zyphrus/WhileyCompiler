@@ -12,21 +12,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import wybs.lang.SyntaxError;
 import wyc.commands.Compile;
-import wyc.io.WhileyFileLexer;
 import wyc.io.WhileyFilePrinter;
-import wyc.lang.Stmt;
 import wyc.lang.WhileyFile;
 import wyc.util.TestUtils;
-import wycc.util.Logger;
 import wycc.util.Pair;
-import wyfs.lang.Content;
-import wyfs.lang.Path;
 import wyfs.util.Trie;
 
-import java.io.*;
-import java.nio.file.Files;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -122,6 +117,22 @@ public class PrettyPrinterTest {
 
 			try {
 				TestUtils.parse(whileyPrettyDir, whileyPrettyFilename);
+
+				Pair<Compile.Result,String> p = TestUtils.compile(
+				        whileyPrettyDir, false, whileyPrettyFilename);
+
+                Compile.Result r = p.first();
+
+                System.out.print(p.second());
+
+                if (r != Compile.Result.SUCCESS) {
+                    fail("Test failed to compile!");
+                } else if (r == Compile.Result.INTERNAL_FAILURE) {
+                    fail("Test caused internal failure!");
+                }
+
+                // Execute the compile WyIL file
+                TestUtils.execWyil(whileySrcDir, Trie.fromString(testName));
 				whileyPrettyFile.delete();
 			} catch (wybs.lang.SyntaxError ex) {
 			    ex.outputSourceError(System.err, false);
