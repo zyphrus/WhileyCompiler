@@ -49,7 +49,6 @@ public class StartingBoundInvariant implements InvariantGenerator {
         SequenceDirection direction = determineSequenceDirection(variant, variantExpr);
         // check if the mutation is invalid
         if (direction == SequenceDirection.UNKNOWN) {
-            System.err.println("unable to determine sequence direction of variant");
             return null;
         }
 
@@ -57,7 +56,6 @@ public class StartingBoundInvariant implements InvariantGenerator {
         // could extend this to create a ghost variable instead, however for now keeping to safe
         Util.Variable preLoopValue = context.getValue(variant.var);
         if (!checkPreLoopValue(preLoopValue.getAssigned(), context)) {
-            System.err.println("Oh my, the entrant value is not safe for " + variant + " with " + preLoopValue );
             return null;
         }
 

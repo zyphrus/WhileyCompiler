@@ -53,15 +53,12 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
 
         // check if the mutation is invalid
         if (direction == SequenceDirection.UNKNOWN || direction == SequenceDirection.UNDETERMINED) {
-            System.err.println("unable to determine sequence direction of variant");
             return null;
         }
 
-        // TODO: detect if the value before the loop is safe or not
         // could extend this to create a ghost variable instead, however for now keeping to safe
         Util.Variable preLoopValue = context.getValue(variant.var);
         if (!checkPreLoopValue(preLoopValue.getAssigned(), context)) {
-            System.err.println("Oh my, the entrant value is not safe for " + variant + " with " + preLoopValue );
             return null;
         }
 

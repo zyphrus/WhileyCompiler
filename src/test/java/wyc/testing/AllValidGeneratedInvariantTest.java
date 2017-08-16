@@ -168,7 +168,6 @@ public class AllValidGeneratedInvariantTest {
 	 * @throws IOException
 	 */
 	protected void runTest(String name) throws IOException {
-		LoopInvariantGenerator.Enabled = true;
 		File whileySrcDir = new File(WHILEY_SRC_DIR);
 		// this will need to turn on verification at some point.
 		name = WHILEY_SRC_DIR + File.separatorChar + name + ".whiley";
@@ -177,6 +176,7 @@ public class AllValidGeneratedInvariantTest {
 				whileySrcDir,      // location of source directory
 				true,                // enable verification
 				name);               // name of test to compile
+
 
 		Compile.Result r = p.first();
 		System.out.print(p.second());
@@ -210,6 +210,12 @@ public class AllValidGeneratedInvariantTest {
 	public void beforeMethod() {
 		String ignored = IGNORED.get(this.testName);
 		Assume.assumeTrue("Test " + this.testName + " skipped: " + ignored, ignored == null);
+		LoopInvariantGenerator.Enabled = true;
+	}
+
+	@After
+	public void afterMethod() {
+		LoopInvariantGenerator.Enabled = false;
 	}
 
 	@Test

@@ -108,7 +108,6 @@ public class LoopInvariantGenerator {
                 Expr rval = rvals.next();
 
                 // if (context.hasValue(lval.toString())) {
-                //     System.err.println("Oh dear, two assignments for " + lval + " removing from set of safe variants");
                 //     context.getValue(lval.toString()).setAssigned(null);
                 //     continue;
                 // }
@@ -142,6 +141,7 @@ public class LoopInvariantGenerator {
 
                             System.out.print("\twhere ");
                             new WhileyFilePrinter(System.out).print(invariant);
+                            System.out.println();
                             System.out.println();
 
                             whileStmt.invariants.add(invariant);

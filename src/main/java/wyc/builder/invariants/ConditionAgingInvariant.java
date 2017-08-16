@@ -28,7 +28,6 @@ public class ConditionAgingInvariant implements InvariantGenerator {
             Set<String> usedVariables = variablesUsedIn(cond);
             for (String used : usedVariables) {
                 if (variants.containsKey(used)) {
-                    System.out.println("Found one!" + used);
                     // 5. apply ageing to the condition based off the variants (should it be max difference?)
                     Expr aged = applyAgingTo(cond, used, variants.get(used));
                     // 6. add invariant
@@ -37,9 +36,7 @@ public class ConditionAgingInvariant implements InvariantGenerator {
                 }
             }
         }
-        if (!invariants.isEmpty()) {
-            System.err.println("HAVE AN INVARIANT");
-        }
+
         return invariants;
     }
 
