@@ -32,6 +32,7 @@ public class LoopInvariantGenerator {
         this.generators.add(new StartingBoundInvariantLattice());
         this.generators.add(new ArrayLengthCopyInvariant());
         this.generators.add(new ConditionAgingInvariant());
+        this.generators.add(new ArrayInitInvariant());
     }
 
     public void generate() {

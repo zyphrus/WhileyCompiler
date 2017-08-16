@@ -14,8 +14,10 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
     public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
-        Environment env = findVariants(whileStmt, context);
-        for (Map.Entry<String, Pair<SequenceDirection, Expr.AssignedVariable>> variant : env.variables.entrySet()) {
+        Map<String, Pair<SequenceDirection, Expr.AssignedVariable>>
+                env = findVariants(whileStmt, context);
+
+        for (Map.Entry<String, Pair<SequenceDirection, Expr.AssignedVariable>> variant : env.entrySet()) {
 
             SequenceDirection direction = variant.getValue().first();
             if (direction != SequenceDirection.UNDETERMINED &&
@@ -65,18 +67,18 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
 
         // given the
         return new Expr.BinOp(direction.toBOp(), variant, preLoopValue.getAssigned(),
-                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
+                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant));
     }
 
-    private Environment findVariants(Stmt.While whileStmt, Util.Context context) {
+    public static Map<String, Pair<SequenceDirection, Expr.AssignedVariable>> findVariants(Stmt.While whileStmt, Util.Context context) {
         Environment env = new Environment();
 
         findVariants(whileStmt.body, env, context);
 
-        return env;
+        return env.variables;
     }
 
-    private void findVariants(List<Stmt> stmts, Environment env, Util.Context context) {
+    private static void findVariants(List<Stmt> stmts, Environment env, Util.Context context) {
         for (Stmt stmt : stmts) {
             findVariants(stmt, env, context);
         }
@@ -95,7 +97,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
      * @param env
      * @param context collection of local variables and parameters
      */
-    private void findVariants(Stmt stmt, Environment env, Util.Context context) {
+    private static void findVariants(Stmt stmt, Environment env, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
@@ -194,7 +196,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
         return false;
     }
 
-    private enum SequenceDirection {
+    public enum SequenceDirection {
         ASCENDING,
         DESCENDING,
         UNDETERMINED,
@@ -213,7 +215,7 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
     }
 
 
-    private SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
+    private static SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
         if (!Util.isSimpleMutationOfVar(variable, expr)) {
            return SequenceDirection.UNDETERMINED;
         }
@@ -258,6 +260,10 @@ public class StartingBoundInvariantLattice implements InvariantGenerator {
             } else {
                 variables.put(name, new Pair<>(direction, variable));
             }
+        }
+
+        public Map<String, Pair<SequenceDirection, Expr.AssignedVariable>> variables() {
+            return this.variables;
         }
 
         public void merge(Environment... right) {

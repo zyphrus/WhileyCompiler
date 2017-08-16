@@ -61,6 +61,15 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         return invariants;
     }
 
+    /**
+     * Find arrays that are associated through their length
+     *
+     * This is defined by an array being a copy of another array or using the
+     * length of it in an array generator
+     *
+     * @param context
+     * @return Mapping between associated arrays, only key->value
+     */
     Map<Expr.LocalVariable, Expr.LocalVariable> associatedArrays(Util.Context context) {
 
         Map<Expr.LocalVariable, Expr.LocalVariable> associated = new HashMap<>();
@@ -102,40 +111,40 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         return associated;
     }
 
-    private Map<String, Boolean> findArrays(Stmt.While whileStmt, Util.Context context) {
+    public static Map<String, Boolean> findArrays(Stmt.While whileStmt, Util.Context context) {
         Map<String, Boolean> variants = new HashMap<>();
 
-        this.findArrays(whileStmt.body, variants, context);
+        findArrays(whileStmt.body, variants, context);
 
         return variants;
     }
 
-    private void findArrays(List<Stmt> stmts, Map<String, Boolean> variants, Util.Context context) {
+    public static void findArrays(List<Stmt> stmts, Map<String, Boolean> variants, Util.Context context) {
         for (Stmt stmt : stmts) {
             findArrays(stmt, variants, context);
         }
     }
 
-    private void findArrays(Stmt stmt, Map<String, Boolean> variants, Util.Context context) {
+    public static void findArrays(Stmt stmt, Map<String, Boolean> variants, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
             Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
 
-            this.findArrays(stmtIfElse.trueBranch, variants, context);
-            this.findArrays(stmtIfElse.falseBranch, variants, context);
+            findArrays(stmtIfElse.trueBranch, variants, context);
+            findArrays(stmtIfElse.falseBranch, variants, context);
         } else if (stmt instanceof Stmt.Switch) {
             Stmt.Switch switchStmt = (Stmt.Switch) stmt;
             for (Stmt.Case caseStmt : switchStmt.cases) {
-                this.findArrays(caseStmt.stmts, variants, context);
+                findArrays(caseStmt.stmts, variants, context);
             }
         } else if (stmt instanceof Stmt.DoWhile) {
             Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
             // handle the do-while loop ?
-            this.findArrays(whileStmt.body, variants,  context);
+            findArrays(whileStmt.body, variants,  context);
         } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
-            this.findArrays(namedBlock.body, variants, context);
+            findArrays(namedBlock.body, variants, context);
         } else if (stmt instanceof Stmt.Assign) {
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
 
@@ -158,7 +167,7 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
         }
     }
 
-    private void findArrays(Expr expr, Map<String, Boolean> arrays) {
+    public static void findArrays(Expr expr, Map<String, Boolean> arrays) {
 
         if (expr instanceof Expr.LocalVariable) {
             Expr.LocalVariable local = (Expr.LocalVariable) expr;
