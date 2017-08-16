@@ -116,9 +116,7 @@ public class Util {
 
         @Override
         public String toString() {
-            return "GeneratedAttribute{" +
-                    "reason='" + reason + '\'' +
-                    '}';
+            return reason;
         }
     }
 

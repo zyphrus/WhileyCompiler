@@ -32,6 +32,7 @@ public class ConditionAgingInvariant implements InvariantGenerator {
                     // 5. apply ageing to the condition based off the variants (should it be max difference?)
                     Expr aged = applyAgingTo(cond, used, variants.get(used));
                     // 6. add invariant
+                    aged.attributes().add(new Util.GeneratedAttribute("Aged loop condition"));
                     invariants.add(aged);
                 }
             }

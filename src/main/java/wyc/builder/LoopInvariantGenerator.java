@@ -1,7 +1,9 @@
 package wyc.builder;
 
 import wybs.lang.Attribute;
+import wybs.lang.SyntaxError;
 import wyc.builder.invariants.*;
+import wyc.io.WhileyFilePrinter;
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
 import wyc.lang.WhileyFile;
@@ -125,11 +127,25 @@ public class LoopInvariantGenerator {
 
             for (InvariantGenerator generator : generators)  {
                 generator.generateInvariant(whileStmt, context).stream()
-                        .filter(invariant -> invariant != null)
+                        .filter(inv -> !Objects.isNull(inv))
                         .forEach(invariant -> {
-                    invariant.attributes().add(whileStmt.attribute(Attribute.Source.class));
-                    whileStmt.invariants.add(invariant);
-                });
+
+                            invariant.attributes().add(whileStmt.attribute(Attribute.Source.class));
+
+                            Util.GeneratedAttribute reason = invariant.attribute(Util.GeneratedAttribute.class);
+                            if (reason == null) {
+                                throw new IllegalStateException("Generated invariants must be marked with GeneratedAttributes");
+                            }
+
+                            SyntaxError warn = new SyntaxError("WARN: Generated Loop Invariant: " + reason.toString(), whileyFile.getEntry(), whileStmt);
+                            warn.outputSourceError(System.out, false);
+
+                            System.out.print("\twhere ");
+                            new WhileyFilePrinter(System.out).print(invariant);
+                            System.out.println();
+
+                            whileStmt.invariants.add(invariant);
+                        });
             }
 
             findLoops(whileStmt.body, new Util.Context(context));
