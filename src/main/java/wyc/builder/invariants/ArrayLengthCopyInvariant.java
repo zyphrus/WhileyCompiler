@@ -27,28 +27,29 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
     public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
-        // identify arrays that are associated via array generators or copying
+        // 1. identify arrays that are associated via array generators or copying
         Map<Expr.LocalVariable, Expr.LocalVariable> associated =  associatedArrays(context);
-        // find array usages in the loop body
+
+        // 2. find array usages in the loop body
         Map<String, Boolean> validArrays = findArrays(whileStmt, context);
         Set<Pair<String, String>> added = new HashSet<>();
 
         for (Map.Entry<Expr.LocalVariable, Expr.LocalVariable> entry : associated.entrySet()) {
 
-            // merges mapping with validArrays & associated arrays
+            // 3. merges mapping with validArrays & associated arrays
 
             if (entry.getValue() == null ||
                     !validArrays.getOrDefault(entry.getValue().var, false)) {
                 continue;
             }
 
-            // ensure that this combination has not been added already
+            // 4. ensure that this combination has not been added already
             if (added.contains(new Pair<>(entry.getKey().var, entry.getValue().var)) ||
                     added.contains(new Pair<>(entry.getValue().var, entry.getKey().var))) {
                 continue;
             }
 
-            // Build the invariant expression
+            // 5. Build the invariant expression
             Expr lengthOfLocal = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getKey());
             Expr lengthOfBase = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getValue());
             Expr invariant = new Expr.BinOp(Expr.BOp.EQ, lengthOfLocal, lengthOfBase,

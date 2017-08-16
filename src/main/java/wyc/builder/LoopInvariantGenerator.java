@@ -30,8 +30,7 @@ public class LoopInvariantGenerator {
         this.generators = new ArrayList<>();
 
         // TODO: allow this to be user controlled list of invariant generators
-        // this.generators.add(new StartingBoundInvariant());
-        this.generators.add(new StartingBoundInvariantLattice());
+        this.generators.add(new StartingBoundInvariant());
         this.generators.add(new ArrayLengthCopyInvariant());
         this.generators.add(new ConditionAgingInvariant());
         this.generators.add(new ArrayInitInvariant());

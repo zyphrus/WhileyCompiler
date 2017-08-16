@@ -2,6 +2,7 @@ package wyc.builder.invariants;
 
 import wyc.lang.Expr;
 import wyc.lang.Stmt;
+import wycc.util.Pair;
 import wyil.lang.Constant;
 
 import java.math.BigInteger;
@@ -13,16 +14,21 @@ public class StartingBoundInvariant implements InvariantGenerator {
     public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
-        Map<Expr.LVal, Expr> variants = findVariants(whileStmt, context);
-        for (Map.Entry<Expr.LVal, Expr> variant : variants.entrySet()) {
+        Map<String, Pair<SequenceDirection, Expr.AssignedVariable>>
+                env = findVariants(whileStmt, context);
 
-            if (variant.getValue() != null && variant.getKey() instanceof Expr.AssignedVariable) {
-                Expr invariant = startingBoundInvariant((Expr.AssignedVariable) variant.getKey(), variant.getValue(), context);
+        for (Map.Entry<String, Pair<SequenceDirection, Expr.AssignedVariable>> variant : env.entrySet()) {
+
+            SequenceDirection direction = variant.getValue().first();
+            if (direction != SequenceDirection.UNDETERMINED &&
+                    direction != SequenceDirection.UNKNOWN) {
+                Expr invariant = startingBoundInvariant(variant.getValue().second(), direction, context);
 
                 if (invariant != null) {
                     invariants.add(invariant);
                 }
             }
+
         }
 
         return invariants;
@@ -39,20 +45,17 @@ public class StartingBoundInvariant implements InvariantGenerator {
      *    that that value will not change during the loop.
      *
      * @param variant variable that changes in the loop
-     * @param variantExpr the expression that mutates the variant
+     * @param direction
      * @param context a store of local variables and paramters
      * @return expression of invariant, otherwise null
      */
-    private Expr startingBoundInvariant(Expr.AssignedVariable variant, Expr variantExpr, Util.Context context) {
+    private Expr startingBoundInvariant(Expr.AssignedVariable variant, SequenceDirection direction, Util.Context context) {
 
-        // determine the direction of the mutation, + or -
-        SequenceDirection direction = determineSequenceDirection(variant, variantExpr);
         // check if the mutation is invalid
-        if (direction == SequenceDirection.UNKNOWN) {
+        if (direction == SequenceDirection.UNKNOWN || direction == SequenceDirection.UNDETERMINED) {
             return null;
         }
 
-        // TODO: detect if the value before the loop is safe or not
         // could extend this to create a ghost variable instead, however for now keeping to safe
         Util.Variable preLoopValue = context.getValue(variant.var);
         if (!checkPreLoopValue(preLoopValue.getAssigned(), context)) {
@@ -61,20 +64,20 @@ public class StartingBoundInvariant implements InvariantGenerator {
 
         // given the
         return new Expr.BinOp(direction.toBOp(), variant, preLoopValue.getAssigned(),
-                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant + " from loop body"));
+                new Util.GeneratedAttribute("Inferred starting boundary of variable " + variant));
     }
 
-    private Map<Expr.LVal, Expr> findVariants(Stmt.While whileStmt, Util.Context context) {
-        Map<Expr.LVal, Expr> variants = new HashMap<>();
+    public static Map<String, Pair<SequenceDirection, Expr.AssignedVariable>> findVariants(Stmt.While whileStmt, Util.Context context) {
+        Environment env = new Environment();
 
-        findVariants(whileStmt.body, variants, true, context);
+        findVariants(whileStmt.body, env, context);
 
-        return variants;
+        return env.variables;
     }
 
-    private void findVariants(List<Stmt> stmts, Map<Expr.LVal, Expr> variants, boolean topLevel, Util.Context context) {
+    private static void findVariants(List<Stmt> stmts, Environment env, Util.Context context) {
         for (Stmt stmt : stmts) {
-            findVariants(stmt, variants, topLevel, context);
+            findVariants(stmt, env, context);
         }
     }
 
@@ -88,30 +91,37 @@ public class StartingBoundInvariant implements InvariantGenerator {
      * safe for invariant generation.
      *
      * @param stmt statement to be checked
-     * @param variants map of variants already identified
-     * @param topLevel check to make sure we are at the top level of the while loop
+     * @param env
      * @param context collection of local variables and parameters
      */
-    private void findVariants(Stmt stmt, Map<Expr.LVal, Expr> variants, boolean topLevel, Util.Context context) {
+    private static void findVariants(Stmt stmt, Environment env, Util.Context context) {
         // only check the guaranteed sections of the loop
         // and ignoring any branches or inner-loops to lessen complexity of identifying variants
         if (stmt instanceof Stmt.IfElse) {
             Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
 
-            findVariants(stmtIfElse.trueBranch, variants, false, context);
-            findVariants(stmtIfElse.falseBranch, variants, false, context);
+            Environment trueEnv = new Environment(env);
+            Environment falseEnv = new Environment(env);
+
+            findVariants(stmtIfElse.trueBranch, trueEnv, context);
+            findVariants(stmtIfElse.falseBranch, falseEnv, context);
+
+            env.merge(trueEnv, falseEnv);
+
         } else if (stmt instanceof Stmt.Switch) {
             Stmt.Switch switchStmt = (Stmt.Switch) stmt;
+
             for (Stmt.Case caseStmt : switchStmt.cases) {
-                findVariants(caseStmt.stmts, variants, false, context);
+                findVariants(caseStmt.stmts, env, context);
             }
+
         } else if (stmt instanceof Stmt.DoWhile) {
             Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
             // handle the do-while loop ?
-            findVariants(whileStmt.body, variants, false, context);
+            findVariants(whileStmt.body, env, context);
         } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
-            findVariants(namedBlock.body, variants, topLevel, context);
+            findVariants(namedBlock.body, env, context);
         } else if (stmt instanceof Stmt.Assign) {
             Stmt.Assign stmtAssign = (Stmt.Assign) stmt;
 
@@ -126,31 +136,18 @@ public class StartingBoundInvariant implements InvariantGenerator {
                 if (lval instanceof Expr.AssignedVariable) {
                     Expr.AssignedVariable assignedVariable = (Expr.AssignedVariable) lval;
 
-                    Optional<Expr.AssignedVariable> duplicate = variants.keySet()
-                            .stream()
-                            .filter(e -> e instanceof Expr.AssignedVariable)
-                            .map(e -> (Expr.AssignedVariable) e)
-                            .filter(e ->  e.var.equals(assignedVariable.var))
-                            .findFirst();
-
                     // must be a variable of int type
                     // must have a simple mutation
                     if (lval.result().equals(wyil.lang.Type.T_INT)
-                            && !duplicate.isPresent()
                             // restrict variants to values defined out of the loop
                             && context.hasValue(assignedVariable.var)
-                            // make sure that they have a 'simple' assignment
                             && context.getValue(assignedVariable.var) != null
-                            && Util.isSimpleMutationOfVar(assignedVariable, rval)
-                            // ensure that variants found to be assigned in inner branches/loops are invalidated as
-                            // candidates
-                            && topLevel
                             ) {
-                        variants.put(lval, rval);
+                        env.update(assignedVariable, determineSequenceDirection(assignedVariable, rval));
                     } else {
                         // invalidate the variant to be a candidate to check
                         // since the mutations are too complex to be handled
-                        variants.put(lval, null);
+                        env.update(assignedVariable, SequenceDirection.UNDETERMINED);
                     }
                 }
             }
@@ -196,9 +193,10 @@ public class StartingBoundInvariant implements InvariantGenerator {
         return false;
     }
 
-    private enum SequenceDirection {
+    public enum SequenceDirection {
         ASCENDING,
         DESCENDING,
+        UNDETERMINED,
         UNKNOWN;
 
         public Expr.BOp toBOp() {
@@ -214,7 +212,11 @@ public class StartingBoundInvariant implements InvariantGenerator {
     }
 
 
-    private SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
+    private static SequenceDirection determineSequenceDirection(Expr.AssignedVariable variable, Expr expr) {
+        if (!Util.isSimpleMutationOfVar(variable, expr)) {
+           return SequenceDirection.UNDETERMINED;
+        }
+
         BigInteger exprValInitial = Util.evalConstExpr(variable, expr, BigInteger.ZERO);
         BigInteger exprValStep = Util.evalConstExpr(variable, expr, exprValInitial);
 
@@ -229,4 +231,44 @@ public class StartingBoundInvariant implements InvariantGenerator {
         }
     }
 
+
+    public static class Environment {
+
+        private final Map<String, Pair<SequenceDirection, Expr.AssignedVariable>> variables;
+
+        public Environment() {
+           variables = new HashMap<>();
+        }
+
+        public Environment(Environment env) {
+            // copy constructor
+            variables = new HashMap<>(env.variables);
+        }
+
+        public void update(Expr.AssignedVariable variable, SequenceDirection direction) {
+            String name = variable.var;
+
+            if (variables.containsKey(name)) {
+                SequenceDirection current = variables.get(name).first();
+
+                if (direction != current) {
+                    variables.put(name, new Pair<>(SequenceDirection.UNDETERMINED, null));
+                }
+            } else {
+                variables.put(name, new Pair<>(direction, variable));
+            }
+        }
+
+        public Map<String, Pair<SequenceDirection, Expr.AssignedVariable>> variables() {
+            return this.variables;
+        }
+
+        public void merge(Environment... right) {
+            for (Environment env : right) {
+                for (Map.Entry<String, Pair<SequenceDirection, Expr.AssignedVariable>> entry : env.variables.entrySet()) {
+                    this.update(entry.getValue().second(), entry.getValue().first());
+                }
+            }
+        }
+    }
 }

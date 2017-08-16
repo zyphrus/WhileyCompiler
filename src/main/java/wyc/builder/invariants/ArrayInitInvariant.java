@@ -15,19 +15,22 @@ public class ArrayInitInvariant implements InvariantGenerator {
     public List<Expr> generateInvariant(Stmt.While whileStmt, Util.Context context) {
         List<Expr> invariants = new ArrayList<>();
 
-        Map<String, Pair<StartingBoundInvariantLattice.SequenceDirection, Expr.AssignedVariable>>
-                variableSquence = StartingBoundInvariantLattice.findVariants(whileStmt, context);
+        // 1. Identify variants with a sequence direction (the index)
+        Map<String, Pair<StartingBoundInvariant.SequenceDirection, Expr.AssignedVariable>>
+                variableSquence = StartingBoundInvariant.findVariants(whileStmt, context);
 
+        // 2. Find all arrays that assign to an element each iteration (no if's / inner-loops)
         Map<Expr.IndexOf, Expr> elements = findElementAssignment(whileStmt, context);
-
 
         for (Map.Entry<Expr.IndexOf, Expr> entry : elements.entrySet()) {
 
+            // 3. Ensure it is a simple index into array
             Expr.IndexOf index = entry.getKey();
-
             if (!(index.index instanceof Expr.LocalVariable)) {
                 continue;
             }
+
+            // 4. Create new variable for the index
             Expr.LocalVariable var = (Expr.LocalVariable) index.index;
             String indexName = var.var;
             String newIndexName =  "_" + var.var ;
@@ -37,17 +40,18 @@ public class ArrayInitInvariant implements InvariantGenerator {
                 continue;
             }
 
-            Pair<StartingBoundInvariantLattice.SequenceDirection, Expr.AssignedVariable>
+            // 5. Determine the range of the quantifier
+            Pair<StartingBoundInvariant.SequenceDirection, Expr.AssignedVariable>
                 v = variableSquence.get(indexName);
 
             Expr start = null;
             Expr end = null;
 
             // make sure the range of values are in the right order
-            if (v.first() == StartingBoundInvariantLattice.SequenceDirection.ASCENDING) {
+            if (v.first() == StartingBoundInvariant.SequenceDirection.ASCENDING) {
                 start = context.getValue(indexName).getAssigned();
                 end = var;
-            } else if (v.first() == StartingBoundInvariantLattice.SequenceDirection.DESCENDING) {
+            } else if (v.first() == StartingBoundInvariant.SequenceDirection.DESCENDING) {
                 start = var;
                 end = context.getValue(indexName).getAssigned();
             }
@@ -57,6 +61,7 @@ public class ArrayInitInvariant implements InvariantGenerator {
                 continue;
             }
 
+            // 6. Build quantifier expression
             // Building the initialise for the quantifier
             List<Triple<String, Expr, Expr>> ranges = new ArrayList<>();
             Triple<String, Expr, Expr> range = new Triple<>(newIndexName, start, end);

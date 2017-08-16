@@ -13,6 +13,16 @@ import java.util.Set;
 
 public class Util {
 
+    /**
+     * Resolves a type from a nominal type to its base type
+     *
+     * Should be when checking if an expression is of a given type so that
+     * aliasing does not make it fail
+     *
+     * @param type to resolve
+     * @param context current context
+     * @return resolved type, otherwise null
+     */
     public static Type resolveType(Type type, Context context) {
         if (type instanceof Type.Nominal) {
             Type.Nominal nominal = (Type.Nominal) type;
@@ -31,10 +41,8 @@ public class Util {
     /**
      * Evaluate an expression that contains only constants and the assigned variable
      *
-     *
-     *
-     * @param variable
-     * @param expr
+     * @param variable to be set to the value of varValue
+     * @param expr to be evaluated
      * @return the change in value the variable will
      */
     public static BigInteger evalConstExpr(Expr.AssignedVariable variable, Expr expr, BigInteger varValue) {
