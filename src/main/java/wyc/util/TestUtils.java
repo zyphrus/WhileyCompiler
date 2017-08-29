@@ -88,7 +88,7 @@ public class TestUtils {
 	 * @return
 	 * @throws IOException
 	 */
-	public static Pair<Compile.Result,String> compile(File whileydir, boolean verify, String... args) throws IOException {
+	public static Pair<Compile.Result,String> compile(File whileydir, boolean verify, boolean generateLoopInvariants, String... args) throws IOException {
 		ByteArrayOutputStream syserr = new ByteArrayOutputStream();
 		ByteArrayOutputStream sysout = new ByteArrayOutputStream();
 		Content.Registry registry = new wyc.Activator.Registry();
@@ -96,11 +96,17 @@ public class TestUtils {
 		cmd.setWhileydir(whileydir);
 		cmd.setWyaldir(whileydir); //
 		cmd.setVerify(verify);
+		cmd.setGenerateLoopInvariant(generateLoopInvariants);
 		Compile.Result result = cmd.execute(args);
 		byte[] errBytes = syserr.toByteArray();
 		byte[] outBytes = sysout.toByteArray();
 		String output = new String(errBytes) + new String(outBytes);
 		return new Pair<>(result,output);
+	}
+
+
+	public static Pair<Compile.Result,String> compile(File whileydir, boolean verify, String... args) throws IOException {
+		return compile(whileydir, verify, false, args);
 	}
 
 	public static List<WhileyFile> parse(File whileydir, String... args) throws IOException {

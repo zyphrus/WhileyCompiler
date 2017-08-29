@@ -99,6 +99,8 @@ public final class CompileTask implements Build.Task {
 	 */
 	private final HashMap<Path.ID, Path.Entry<WhileyFile>> srcFiles = new HashMap<>();
 
+	private boolean generateLoopInvariants = false;
+
 	/**
 	 * The import cache caches specific import queries to their result sets.
 	 * This is extremely important to avoid recomputing these result sets every
@@ -220,7 +222,9 @@ public final class CompileTask implements Build.Task {
 				WhileyFile wf = source.read();
 				new DefiniteAssignmentAnalysis(wf).check();
 				new ModuleCheck(wf).check();
-				new LoopInvariantGenerator(wf).generate();
+				if (generateLoopInvariants) {
+					new LoopInvariantGenerator(wf).generate();
+				}
 				WyilFile wyil = generator.generate(wf, target);
 				new MoveAnalysis(this).apply(wyil);
 				target.write(wyil);
@@ -801,8 +805,15 @@ public final class CompileTask implements Build.Task {
 			}
 			firstTime = false;
 			r += Character.toLowerCase(c);
-			;
 		}
 		return r;
+	}
+
+	public boolean isGenerateLoopInvariants() {
+		return generateLoopInvariants;
+	}
+
+	public void setGenerateLoopInvariants(boolean generateLoopInvariants) {
+		this.generateLoopInvariants = generateLoopInvariants;
 	}
 }

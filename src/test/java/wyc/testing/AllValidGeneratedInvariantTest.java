@@ -172,6 +172,7 @@ public class AllValidGeneratedInvariantTest {
 		Pair<Compile.Result,String> p = TestUtils.compile(
 				whileySrcDir,      // location of source directory
 				true,                // enable verification
+                true, // enable generation of loop invariants
 				name);               // name of test to compile
 
 
@@ -207,12 +208,6 @@ public class AllValidGeneratedInvariantTest {
 	public void beforeMethod() {
 		String ignored = IGNORED.get(this.testName);
 		Assume.assumeTrue("Test " + this.testName + " skipped: " + ignored, ignored == null);
-		LoopInvariantGenerator.Enabled = true;
-	}
-
-	@After
-	public void afterMethod() {
-		LoopInvariantGenerator.Enabled = false;
 	}
 
 	@Test

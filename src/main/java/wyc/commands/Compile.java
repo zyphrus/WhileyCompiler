@@ -96,6 +96,11 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 	protected boolean proof = false;
 
 	/**
+	 * Signals to generate loop invariants
+	 */
+	protected boolean generateLoopInvariant = false;
+
+	/**
 	 * Identifies which whiley source files should be considered for
 	 * compilation. By default, all files reachable from srcdir are considered.
 	 */
@@ -151,7 +156,8 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 			"counterexamples",
 			"vcg",
 			"proof",
-			"brief"
+			"brief",
+			"genloopinv"
 	};
 
 	@Override
@@ -172,6 +178,8 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 			return "Enable counterexample generation";
 		case "vcg":
 			return "Emit verification condition for Whiley source files";
+        case "genloopinv":
+            return "Enable generation of simple loop invariants";
 		default:
 			return super.describe(option);
 		}
@@ -197,6 +205,9 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 			break;
 		case "proof":
 			this.proof = true;
+			break;
+        case "genloopinv":
+        	this.generateLoopInvariant = true;
 			break;
 		default:
 			super.set(option, value);
@@ -251,7 +262,16 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 	public void setExcludes(Content.Filter<WhileyFile> excludes) {
 		this.whileyExcludes = excludes;
 	}
-	// =======================================================================
+
+	public boolean isGenerateLoopInvariant() {
+		return generateLoopInvariant;
+	}
+
+	public void setGenerateLoopInvariant(boolean generateLoopInvariant) {
+		this.generateLoopInvariant = generateLoopInvariant;
+	}
+
+// =======================================================================
 	// Execute
 	// =======================================================================
 
@@ -356,6 +376,7 @@ public class Compile extends AbstractProjectCommand<Compile.Result> {
 	protected void addWhiley2WyilBuildRule(StdProject project) {
 		// Rule for compiling Whiley to WyIL
 		CompileTask wyilBuilder = new CompileTask(project);
+		wyilBuilder.setGenerateLoopInvariants(this.generateLoopInvariant);
 		if(verbose) {
 			wyilBuilder.setLogger(logger);
 		}
