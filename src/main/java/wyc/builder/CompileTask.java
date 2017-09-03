@@ -100,6 +100,7 @@ public final class CompileTask implements Build.Task {
 	private final HashMap<Path.ID, Path.Entry<WhileyFile>> srcFiles = new HashMap<>();
 
 	private boolean generateLoopInvariants = false;
+	public static WhileyFile cachedWhileyFile = null;
 
 	/**
 	 * The import cache caches specific import queries to their result sets.
@@ -225,6 +226,9 @@ public final class CompileTask implements Build.Task {
 				if (generateLoopInvariants) {
 					new LoopInvariantGenerator(wf).generate();
 				}
+
+				cachedWhileyFile = wf;
+
 				WyilFile wyil = generator.generate(wf, target);
 				new MoveAnalysis(this).apply(wyil);
 				target.write(wyil);
