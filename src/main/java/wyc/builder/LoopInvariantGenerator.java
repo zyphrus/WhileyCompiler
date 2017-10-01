@@ -69,21 +69,33 @@ public class LoopInvariantGenerator {
     void findLoops(Stmt stmt, Util.Context context) {
         if (stmt instanceof Stmt.IfElse) {
             Stmt.IfElse stmtIfElse = (Stmt.IfElse) stmt;
+            Util.Context trueBranch = new Util.Context(context);
+            findLoops(stmtIfElse.trueBranch, trueBranch);
+            trueBranch.mergeParent();
 
-            findLoops(stmtIfElse.trueBranch, new Util.Context(context));
-            findLoops(stmtIfElse.falseBranch, new Util.Context(context));
+            Util.Context falseBranch = new Util.Context(context);
+            findLoops(stmtIfElse.falseBranch, falseBranch);
+            falseBranch.mergeParent();
         } else if (stmt instanceof Stmt.NamedBlock) {
             Stmt.NamedBlock namedBlock = (Stmt.NamedBlock) stmt;
-            findLoops(namedBlock.body, new Util.Context(context));
+
+            Util.Context block = new Util.Context(context);
+            findLoops(namedBlock.body, block);
+            block.mergeParent();
         } else if (stmt instanceof Stmt.Switch) {
             Stmt.Switch switchStmt = (Stmt.Switch) stmt;
             for (Stmt.Case caseStmt : switchStmt.cases) {
-                findLoops(caseStmt.stmts, new Util.Context(context));
+                Util.Context block = new Util.Context(context);
+                findLoops(caseStmt.stmts, block);
+                block.mergeParent();
             }
         } else if (stmt instanceof Stmt.DoWhile) {
             Stmt.DoWhile whileStmt = (Stmt.DoWhile) stmt;
             // handle the do-while loop ?
-            findLoops(whileStmt.body, new Util.Context(context));
+            Util.Context block = new Util.Context(context);
+            findLoops(whileStmt.body, block);
+            block.mergeParent();
+
         } else if (stmt instanceof Stmt.VariableDeclaration) {
             Stmt.VariableDeclaration stmtDecl = (Stmt.VariableDeclaration) stmt;
 

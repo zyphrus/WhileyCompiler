@@ -166,6 +166,18 @@ public class Util {
             this.variables.put(variable, new Util.Variable(type, expr));
         }
 
+        public void mergeParent() {
+            if (this.parent == null) {
+                throw new IllegalStateException("Only the children nodes can merge");
+            }
+
+            for (Map.Entry<String, Variable> entry : this.variables.entrySet()) {
+                if (parent.variables.containsKey(entry.getKey())) {
+                    parent.variables.put(entry.getKey(), null);
+                }
+            }
+        }
+
 
         public void putParam(String variable) {
             if (this.parent != null) {
@@ -182,7 +194,13 @@ public class Util {
         }
 
         public Map<String, Util.Variable> getVariables() {
-            return new HashMap<>(this.variables);
+            HashMap<String, Util.Variable> filtered = new HashMap<>();
+            for (Map.Entry<String, Util.Variable> entry : this.variables.entrySet()) {
+                if (entry.getValue() != null)  {
+                    filtered.put(entry.getKey(), entry.getValue());
+                }
+            }
+            return filtered;
         }
 
         public Type resolveType(String name) {
