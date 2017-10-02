@@ -44,9 +44,15 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
                 continue;
             }
 
-            // 4. ensure that this combination has not been added already
+            // 4. Build the invariant expression
             Expr left = entry.getValue();
+            if (left instanceof Expr.LocalVariable) {
+                left = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getKey());
+            }
             Expr right = entry.getValue();
+            if (right instanceof Expr.LocalVariable) {
+                right = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getValue());
+            }
 
 /*            if (left instanceof Expr.LocalVariable)
             if (added.contains(new Pair<>(entry.getKey().var, entry.getValue().var)) ||
@@ -54,10 +60,9 @@ public class ArrayLengthCopyInvariant implements InvariantGenerator {
                 continue;
             }*/
 
-            // 5. Build the invariant expression
             Expr lengthOfLocal = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getKey());
             Expr lengthOfBase = new Expr.UnOp(Expr.UOp.ARRAYLENGTH, entry.getValue());
-            Expr invariant = new Expr.BinOp(Expr.BOp.EQ, lengthOfLocal, lengthOfBase,
+            Expr invariant = new Expr.BinOp(Expr.BOp.EQ, left, right,
                     new Util.GeneratedAttribute("local array is generated with length equal to another array"));
 
             invariants.add(invariant);
